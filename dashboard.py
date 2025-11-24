@@ -150,7 +150,7 @@ col1, col2, col3, col4 = st.columns(4)
 with col1:
     st.metric("Total Exposure", format_currency(total_exposure/LEVERAGE))
 with col2:
-    st.metric("Leverage", LEVERAGE)
+    st.metric("Leverage", int(LEVERAGE))
 with col3:
     st.metric("Total Cost", format_currency(total_cost))
 with col4:

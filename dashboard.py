@@ -9,8 +9,7 @@ from datetime import datetime
 # 🛠️ CONFIGURATION
 # ===================================================================
 CURRENCY_SYMBOL = "$"
-REFRESH_INTERVAL_SEC = 30
-LEVERAGE = 2.0  # 👈 EDIT THIS: 1.0 = unleveraged, 2.0 = 2x, etc.
+REFRESH_INTERVAL_SEC = 30  # Data auto-refreshes every 30 sec (no page reload needed)
 
 # ===================================================================
 # 🔐 Load Google Sheet URL from Streamlit Secrets
@@ -54,7 +53,7 @@ def load_data(url):
         df = pd.read_csv(url)
         return df
     except Exception as e:
-        st.error(f"❌ Failed to load  {str(e)[:150]}...")
+        st.error(f"❌ Failed to load data: {str(e)[:150]}...")
         return pd.DataFrame()
 
 df_raw = load_data(GOOGLE_SHEET_CSV_URL)
@@ -71,15 +70,24 @@ if not required_cols.issubset(df_raw.columns):
     st.error(f"⚠️ Missing columns: {required_cols - set(df_raw.columns)}")
     st.stop()
 
+# Select only needed columns
 df = df_raw[list(required_cols)].copy()
 
+# Convert to numeric
 for col in ['Position', 'AvgCost', 'MarketPrice']:
     df[col] = pd.to_numeric(df[col], errors='coerce')
 
-df = df.dropna(subset=['Symbol', 'Position', 'AvgCost', 'MarketPrice'])
+# 🔥 AGGRESSIVE CLEANING: Remove ALL invalid/empty rows
+df = df.dropna(subset=['Symbol', 'Position', 'AvgCost', 'MarketPrice'])  # No NaN in key cols
+
+# Remove rows where Symbol or Strategy is blank (including whitespace)
 df = df[df['Symbol'].astype(str).str.strip() != '']
 df = df[df['Strategy Name'].astype(str).str.strip() != '']
+
+# Remove zero positions
 df = df[df['Position'] != 0]
+
+# Final reset
 df = df.reset_index(drop=True)
 
 if df.empty:
@@ -111,9 +119,6 @@ total_exposure = df['MarketValue'].abs().sum()
 total_cost = df['CostBasis'].sum()
 total_pnl_pct = (total_pnl / total_cost * 100) if total_cost != 0 else 0
 
-# 🔥 LEVERAGE CALCULATION
-effective_exposure = total_exposure / LEVERAGE if LEVERAGE > 0 else total_exposure
-
 df['Account'] = df['Account'].apply(mask_account)
 df = df.iloc[df['UnrealizedPnL'].abs().argsort()[::-1]].reset_index(drop=True)
 
@@ -138,15 +143,15 @@ st.markdown(
 )
 
 # ===================================================================
-# 📊 Metrics — WITH LEVERAGE
+# 📊 Metrics
 # ===================================================================
 col1, col2, col3 = st.columns(3)
 with col1:
     st.metric("Total Exposure", format_currency(total_exposure))
 with col2:
-    st.metric("Effective Exposure", format_currency(effective_exposure))
+    st.metric("Total Cost", format_currency(total_cost))
 with col3:
-    st.metric("Leverage", f"{LEVERAGE:.1f}x")
+    st.metric("Positions", len(df))
 
 st.caption(f"Live data • Last updated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
 
@@ -157,16 +162,19 @@ st.divider()
 # ===================================================================
 st.subheader("📋 Open Positions")
 
+# Final display columns
 display_df = df[[
     'Strategy Name', 'Account', 'Symbol', 'SecType', 'Long/Short',
     'Position', 'AvgCost', 'MarketPrice', 'UnrealizedPnL', 'UnrealizedPnL%'
 ]].copy()
 
+# Formatting
 display_df['AvgCost'] = display_df['AvgCost'].apply(format_currency)
 display_df['MarketPrice'] = display_df['MarketPrice'].apply(format_currency)
 display_df['UnrealizedPnL'] = display_df['UnrealizedPnL'].apply(format_currency)
 display_df['UnrealizedPnL%'] = display_df['UnrealizedPnL%'].apply(format_percent)
 
+# Color styling
 def color_pnl(val):
     if isinstance(val, str):
         if "−" in val or f"{CURRENCY_SYMBOL}-" in val or (val.startswith("-") and CURRENCY_SYMBOL not in val):
@@ -223,7 +231,8 @@ with c2:
     st.plotly_chart(fig2, use_container_width=True)
 
 # ===================================================================
-# ✅ AUTO-REFRESH VIA STREAMLIT (NO PAGE RELOAD)
+# ✅ NO JAVASCRIPT RELOAD NEEDED!
+# Streamlit auto-refreshes data every REFRESH_INTERVAL_SEC seconds
 # ===================================================================
 st.divider()
 st.caption(f"🔁 Data refreshes automatically every {REFRESH_INTERVAL_SEC} seconds")

@@ -6,10 +6,10 @@ import numpy as np
 from datetime import datetime
 
 # ===================================================================
-# 🛠️ CONFIGURATION — EDIT THESE TO CUSTOMIZE
+# 🛠️ CONFIGURATION
 # ===================================================================
-CURRENCY_SYMBOL = "$"          # 👈 Change to "€", "₹", "£", etc.
-REFRESH_INTERVAL_SEC = 30     # Auto-refresh every N seconds
+CURRENCY_SYMBOL = "$"
+REFRESH_INTERVAL_SEC = 30
 
 # ===================================================================
 # 🔐 Load Google Sheet URL from Streamlit Secrets
@@ -45,13 +45,12 @@ def format_percent(val):
     return f"{val:+.2f}%"
 
 # ===================================================================
-# 📥 Load & Clean Data (Remove ALL empty/invalid rows)
+# 📥 Load & Clean Data
 # ===================================================================
 @st.cache_data(ttl=REFRESH_INTERVAL_SEC)
 def load_data(url):
     try:
-        df = pd.read_csv(url)
-        return df
+        return pd.read_csv(url)
     except Exception as e:
         st.error(f"❌ Failed to load data: {str(e)[:150]}...")
         return pd.DataFrame()
@@ -62,7 +61,6 @@ if df_raw.empty:
     st.warning("📭 No data received.")
     st.stop()
 
-# Required columns (your exact structure)
 required_cols = {
     'Strategy Name', 'Account', 'Symbol', 'SecType',
     'Currency', 'Position', 'AvgCost', 'MarketPrice'
@@ -71,20 +69,15 @@ if not required_cols.issubset(df_raw.columns):
     st.error(f"⚠️ Missing columns: {required_cols - set(df_raw.columns)}")
     st.stop()
 
-# Select relevant columns
 df = df_raw[list(required_cols)].copy()
 
-# Convert to numeric — errors='coerce' turns bad values to NaN
 for col in ['Position', 'AvgCost', 'MarketPrice']:
     df[col] = pd.to_numeric(df[col], errors='coerce')
 
-# 🔥 CRITICAL: Remove ALL non-meaningful rows
-df = df.dropna(subset=['Symbol', 'Position', 'AvgCost', 'MarketPrice'])  # Must have these
-df = df[df['Position'] != 0]                                             # Exclude zero positions
-df = df[df['Symbol'].str.strip() != '']                                 # Exclude blank symbols
-df = df[df['Strategy Name'].str.strip() != '']                          # Exclude blank strategies
-
-# Final reset
+df = df.dropna(subset=['Symbol', 'Position', 'AvgCost', 'MarketPrice'])
+df = df[df['Position'] != 0]
+df = df[df['Symbol'].str.strip() != '']
+df = df[df['Strategy Name'].str.strip() != '']
 df = df.reset_index(drop=True)
 
 if df.empty:
@@ -92,16 +85,13 @@ if df.empty:
     st.stop()
 
 # ===================================================================
-# 📊 Compute P&L (Long/Short Aware)
+# 📊 Compute P&L
 # ===================================================================
 def calculate_pnl(row):
     qty = row['Position']
     avg = row['AvgCost']
     mp = row['MarketPrice']
-    if qty > 0:
-        return (mp - avg) * qty          # Long
-    else:
-        return (avg - mp) * abs(qty)     # Short
+    return (mp - avg) * qty if qty > 0 else (avg - mp) * abs(qty)
 
 df['UnrealizedPnL'] = df.apply(calculate_pnl, axis=1)
 df['CostBasis'] = df['Position'].abs() * df['AvgCost']
@@ -119,36 +109,39 @@ total_exposure = df['MarketValue'].abs().sum()
 total_cost = df['CostBasis'].sum()
 total_pnl_pct = (total_pnl / total_cost * 100) if total_cost != 0 else 0
 
-# Mask account
 df['Account'] = df['Account'].apply(mask_account)
-
-# Sort by absolute P&L (largest moves first)
 df = df.iloc[df['UnrealizedPnL'].abs().argsort()[::-1]].reset_index(drop=True)
 
 # ===================================================================
-# 🎨 UI — Professional Dashboard
+# 🎯 BIG BOLD TOTAL P&L AT TOP
 # ===================================================================
-# st.markdown(
-#     '<div style="text-align:center; font-size:2.2rem; font-weight:700; margin-bottom:0.5rem;">'
-#     'MATQCODE IBKR Dashboard</div>',
-#     unsafe_allow_html=True
-# )
-# st.caption("Live P&L • Long/Short aware • Strategy-based view")
+pnl_color = "green" if total_pnl >= 0 else "red"
+pnl_symbol = "▲" if total_pnl >= 0 else "▼"
+st.markdown(
+    f"""
+    <div style="text-align: center; margin-bottom: 1.2rem;">
+        <span style="font-size: 2.4rem; font-weight: 800; color: {pnl_color};">
+            {format_currency(total_pnl)}
+        </span>
+        <br>
+        <span style="font-size: 1.1rem; color: #666;">
+            Total Unrealized P&L {pnl_symbol} {format_percent(total_pnl_pct)}
+        </span>
+    </div>
+    """,
+    unsafe_allow_html=True
+)
 
-# Metrics
+# ===================================================================
+# 📊 Metrics Row
+# ===================================================================
 col1, col2, col3, col4 = st.columns(4)
 with col1:
-    color = "green" if total_pnl >= 0 else "red"
-    st.metric(
-        "Total P&L",
-        format_currency(total_pnl),
-        delta=format_percent(total_pnl_pct),
-        delta_color="normal"
-    )
-with col2:
     st.metric("Total Exposure", format_currency(total_exposure))
-with col3:
+with col2:
     st.metric("Total Cost", format_currency(total_cost))
+with col3:
+    st.metric("Net P&L %", format_percent(total_pnl_pct))
 with col4:
     st.metric("Positions", len(df))
 
@@ -157,7 +150,7 @@ st.caption(f"Last Updated at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
 st.divider()
 
 # ===================================================================
-# 📋 Position Table — Color-Coded, No Blanks
+# 📋 Open Positions Table (ONLY if data exists — guaranteed by st.stop above)
 # ===================================================================
 st.subheader("📋 Open Positions")
 
@@ -166,16 +159,14 @@ display_df = df[[
     'Position', 'AvgCost', 'MarketPrice', 'UnrealizedPnL', 'UnrealizedPnL%'
 ]].copy()
 
-# Apply formatting
 display_df['AvgCost'] = display_df['AvgCost'].apply(format_currency)
 display_df['MarketPrice'] = display_df['MarketPrice'].apply(format_currency)
 display_df['UnrealizedPnL'] = display_df['UnrealizedPnL'].apply(format_currency)
 display_df['UnrealizedPnL%'] = display_df['UnrealizedPnL%'].apply(format_percent)
 
-# 💡 Use Pandas Styler to color P&L cells directly in table
 def color_pnl(val):
     if isinstance(val, str):
-        if "−" in val or (val.startswith(f"{CURRENCY_SYMBOL}-") or (val.count("-") and not val.startswith(f"{CURRENCY_SYMBOL}"))):
+        if "−" in val or (f"{CURRENCY_SYMBOL}-" in val) or (val.startswith("-") and CURRENCY_SYMBOL not in val):
             return "color: red; font-weight: bold;"
         elif val.startswith(f"{CURRENCY_SYMBOL}") or "+" in val:
             return "color: green; font-weight: bold;"
@@ -200,7 +191,6 @@ st.dataframe(styled_df, use_container_width=True, height=520)
 # ===================================================================
 c1, c2 = st.columns(2)
 
-# P&L by Strategy
 with c1:
     st.subheader("🎯 P&L by Strategy")
     pnl_strat = df.groupby('Strategy Name')['UnrealizedPnL'].sum().reset_index()
@@ -216,7 +206,6 @@ with c1:
     fig1.update_layout(height=400, showlegend=False, xaxis_title=f"P&L ({CURRENCY_SYMBOL})")
     st.plotly_chart(fig1, use_container_width=True)
 
-# Allocation
 with c2:
     st.subheader("🌍 Exposure Allocation")
     alloc_df = df.copy()
@@ -231,11 +220,9 @@ with c2:
     st.plotly_chart(fig2, use_container_width=True)
 
 # ===================================================================
-# ℹ️ Footer
+# 🔁 Auto-refresh
 # ===================================================================
 st.divider()
-
-# Auto-refresh
 st.markdown(
     f"""
     <script>

@@ -1,0 +1,7 @@
+ibkr-portfolio-dashboard/
+├── .gitignore
+├── requirements.txt
+├── dashboard.py
+├── README.md
+└── .streamlit/
+    └── config.toml          # (optional, for local dev)

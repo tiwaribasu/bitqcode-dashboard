@@ -125,7 +125,6 @@ st.markdown(
         </span>
         <br>
         <span style="font-size: 1.1rem; color: #666;">
-            # Total Unrealized P&L {pnl_symbol} {format_percent(total_pnl_pct)}
             {pnl_symbol} {format_percent(total_pnl_pct)}
 
         </span>

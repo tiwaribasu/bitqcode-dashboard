@@ -135,14 +135,14 @@ st.markdown(
 # ===================================================================
 # 📊 Metrics Row
 # ===================================================================
-col1, col2, col3, col4 = st.columns(4)
+col1, col2, col3 = st.columns(3)
 with col1:
     st.metric("Total Exposure", format_currency(total_exposure))
 with col2:
     st.metric("Total Cost", format_currency(total_cost))
+# with col3:
+#     st.metric("Net P&L %", format_percent(total_pnl_pct))
 with col3:
-    st.metric("Net P&L %", format_percent(total_pnl_pct))
-with col4:
     st.metric("Positions", len(df))
 
 st.caption(f"Last Updated at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")

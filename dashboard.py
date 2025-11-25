@@ -158,52 +158,20 @@ st.markdown(
 col1, col2, col3, col4 = st.columns(4)
 
 with col1:
-    st.metric(
-        "Total Long Volume", 
-        format_currency(total_long_volume),
-        delta=None,
-        delta_color="normal"
-    )
+    st.markdown("<div style='color: #1f77b4; font-size: 0.8rem; font-weight: 600;'>Total Long Volume</div>", unsafe_allow_html=True)
+    st.markdown(f"<div style='color: #1f77b4; font-size: 1.5rem; font-weight: 700;'>{format_currency(total_long_volume)}</div>", unsafe_allow_html=True)
 
 with col2:
-    st.metric(
-        "Total Short Volume", 
-        format_currency(total_short_volume),
-        delta=None,
-        delta_color="normal"
-    )
+    st.markdown("<div style='color: #ff4b4b; font-size: 0.8rem; font-weight: 600;'>Total Short Volume</div>", unsafe_allow_html=True)
+    st.markdown(f"<div style='color: #ff4b4b; font-size: 1.5rem; font-weight: 700;'>{format_currency(total_short_volume)}</div>", unsafe_allow_html=True)
 
 with col3:
-    st.metric(
-        "Total Volume", 
-        format_currency(total_volume),
-        delta=None,
-        delta_color="normal"
-    )
+    st.markdown("<div style='color: #000000; font-size: 0.8rem; font-weight: 600;'>Total Volume</div>", unsafe_allow_html=True)
+    st.markdown(f"<div style='color: #000000; font-size: 1.5rem; font-weight: 700;'>{format_currency(total_volume)}</div>", unsafe_allow_html=True)
 
 with col4:
-    st.metric("Positions", len(df))
-
-# ===================================================================
-# 🎨 CUSTOM CSS FOR METRIC COLORS
-# ===================================================================
-st.markdown("""
-<style>
-    /* Blue for Long Volume */
-    [data-testid="stMetricValue"]:first-child {
-        color: #1f77b4 !important;
-    }
-    /* Red for Short Volume */
-    [data-testid="stMetricValue"]:nth-child(2) {
-        color: #ff4b4b !important;
-    }
-    /* Black for Total Volume */
-    [data-testid="stMetricValue"]:nth-child(3) {
-        color: #000000 !important;
-    }
-    /* Keep Positions as default color */
-</style>
-""", unsafe_allow_html=True)
+    st.markdown("<div style='color: #000000; font-size: 0.8rem; font-weight: 600;'>Positions</div>", unsafe_allow_html=True)
+    st.markdown(f"<div style='color: #000000; font-size: 1.5rem; font-weight: 700;'>{len(df)}</div>", unsafe_allow_html=True)
 
 st.caption(f"Last updated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
 

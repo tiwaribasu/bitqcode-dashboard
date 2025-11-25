@@ -158,20 +158,48 @@ st.markdown(
 col1, col2, col3, col4 = st.columns(4)
 
 with col1:
-    st.markdown("<div style='color: #1f77b4; font-size: 0.8rem; font-weight: 600;'>Total Long Volume</div>", unsafe_allow_html=True)
-    st.markdown(f"<div style='color: #1f77b4; font-size: 1.5rem; font-weight: 700;'>{format_currency(total_long_volume)}</div>", unsafe_allow_html=True)
+    st.markdown(
+        f"""
+        <div style="text-align: center;">
+            <div style="font-size: 0.95rem; font-weight: 600; color: #1f77b4; margin-bottom: 0.2rem;">Total Long Volume</div>
+            <div style="font-size: 1.75rem; font-weight: 700; color: #1f77b4;">{format_currency(total_long_volume)}</div>
+        </div>
+        """, 
+        unsafe_allow_html=True
+    )
 
 with col2:
-    st.markdown("<div style='color: #ff4b4b; font-size: 0.8rem; font-weight: 600;'>Total Short Volume</div>", unsafe_allow_html=True)
-    st.markdown(f"<div style='color: #ff4b4b; font-size: 1.5rem; font-weight: 700;'>{format_currency(total_short_volume)}</div>", unsafe_allow_html=True)
+    st.markdown(
+        f"""
+        <div style="text-align: center;">
+            <div style="font-size: 0.95rem; font-weight: 600; color: #ff4b4b; margin-bottom: 0.2rem;">Total Short Volume</div>
+            <div style="font-size: 1.75rem; font-weight: 700; color: #ff4b4b;">{format_currency(total_short_volume)}</div>
+        </div>
+        """, 
+        unsafe_allow_html=True
+    )
 
 with col3:
-    st.markdown("<div style='color: #000000; font-size: 0.8rem; font-weight: 600;'>Total Volume</div>", unsafe_allow_html=True)
-    st.markdown(f"<div style='color: #000000; font-size: 1.5rem; font-weight: 700;'>{format_currency(total_volume)}</div>", unsafe_allow_html=True)
+    st.markdown(
+        f"""
+        <div style="text-align: center;">
+            <div style="font-size: 0.95rem; font-weight: 600; color: #000000; margin-bottom: 0.2rem;">Total Volume</div>
+            <div style="font-size: 1.75rem; font-weight: 700; color: #000000;">{format_currency(total_volume)}</div>
+        </div>
+        """, 
+        unsafe_allow_html=True
+    )
 
 with col4:
-    st.markdown("<div style='color: #000000; font-size: 0.8rem; font-weight: 600;'>Positions</div>", unsafe_allow_html=True)
-    st.markdown(f"<div style='color: #000000; font-size: 1.5rem; font-weight: 700;'>{len(df)}</div>", unsafe_allow_html=True)
+    st.markdown(
+        f"""
+        <div style="text-align: center;">
+            <div style="font-size: 0.95rem; font-weight: 600; color: #000000; margin-bottom: 0.2rem;">Positions</div>
+            <div style="font-size: 1.75rem; font-weight: 700; color: #000000;">{len(df)}</div>
+        </div>
+        """, 
+        unsafe_allow_html=True
+    )
 
 st.caption(f"Last updated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
 

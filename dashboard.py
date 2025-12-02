@@ -8,16 +8,15 @@ from datetime import datetime
 # ===================================================================
 # 🛠️ CONFIGURATION
 # ===================================================================
-REFRESH_INTERVAL_SEC = 5  # Data auto-refreshes every 30 sec (no page reload needed)
+REFRESH_INTERVAL_SEC = 5
 
 # ===================================================================
 # 🔐 Load Google Sheet URL from Streamlit Secrets
 # ===================================================================
 try:
-    GOOGLE_SHEET_CSV_URL_GLOBAL = st.secrets["google_sheet"]["csv_url_global"]
-    GOOGLE_SHEET_CSV_URL_INDIA = st.secrets["google_sheet"]["csv_url_india"]
+    GOOGLE_SHEET_CSV_URL = st.secrets["google_sheet"]["csv_url"]
 except KeyError:
-    st.error("🔐 Missing Google Sheet URLs in Streamlit Secrets.")
+    st.error("🔐 Missing Google Sheet URL in Streamlit Secrets.")
     st.stop()
 
 st.set_page_config(
@@ -45,28 +44,42 @@ def format_percent(val):
     return f"{val:+.2f}%"
 
 # ===================================================================
-# 📥 Load & Clean Data — STRICTEST FILTERING
+# 📥 Load & Clean Data — For Google Sheets with multiple sheets
 # ===================================================================
 @st.cache_data(ttl=REFRESH_INTERVAL_SEC)
-def load_data(url):
+def load_sheet_data(sheet_gid="0"):
+    """Load specific sheet from Google Sheets using gid parameter"""
     try:
+        # Construct URL with gid parameter for specific sheet
+        if "export?format=csv" in GOOGLE_SHEET_CSV_URL:
+            # Replace or add gid parameter
+            if "gid=" in GOOGLE_SHEET_CSV_URL:
+                url = GOOGLE_SHEET_CSV_URL.split("&gid=")[0] + f"&gid={sheet_gid}"
+            else:
+                url = GOOGLE_SHEET_CSV_URL + f"&gid={sheet_gid}"
+        else:
+            url = GOOGLE_SHEET_CSV_URL + f"?gid={sheet_gid}&format=csv"
+        
         df = pd.read_csv(url)
         return df
     except Exception as e:
-        st.error(f"❌ Failed to load data: {str(e)[:150]}...")
+        st.error(f"❌ Failed to load sheet {sheet_gid}: {str(e)[:150]}...")
         return pd.DataFrame()
 
 def process_data(df_raw, region_name, currency_symbol="$"):
     if df_raw.empty:
         return pd.DataFrame()
     
+    # Check for required columns
     required_cols = {
         'Strategy Name', 'Account', 'Symbol', 'SecType',
         'Currency', 'Position', 'AvgCost', 'MarketPrice'
     }
     
-    if not required_cols.issubset(df_raw.columns):
-        st.error(f"⚠️ Missing columns in {region_name}: {required_cols - set(df_raw.columns)}")
+    # Check which required columns exist
+    missing_cols = required_cols - set(df_raw.columns)
+    if missing_cols:
+        st.error(f"⚠️ Missing columns in {region_name}: {missing_cols}")
         return pd.DataFrame()
     
     # Select only needed columns
@@ -76,22 +89,21 @@ def process_data(df_raw, region_name, currency_symbol="$"):
     for col in ['Position', 'AvgCost', 'MarketPrice']:
         df[col] = pd.to_numeric(df[col], errors='coerce')
     
-    # 🔥 ULTRA-AGGRESSIVE CLEANING: Remove ALL invalid/empty rows
-    # Remove rows with NaN in any critical column
+    # 🔥 ULTRA-AGGRESSIVE CLEANING
     df = df.dropna(subset=['Strategy Name', 'Symbol', 'SecType', 'Position', 'AvgCost', 'MarketPrice'])
     
-    # Remove rows with empty strings or whitespace only in text columns
+    # Remove rows with empty strings or whitespace only
     text_columns = ['Strategy Name', 'Symbol', 'SecType', 'Account']
     for col in text_columns:
         if col in df.columns:
             df = df[df[col].astype(str).str.strip() != '']
-            df = df[df[col].astype(str).str.strip() != 'nan']  # Remove 'nan' strings
-            df = df[df[col].notna()]  # Double check for NaN
+            df = df[df[col].astype(str).str.strip() != 'nan']
+            df = df[df[col].notna()]
     
     # Remove zero positions and invalid numeric values
     df = df[df['Position'] != 0]
-    df = df[df['AvgCost'] > 0]  # AvgCost should be positive
-    df = df[df['MarketPrice'] > 0]  # MarketPrice should be positive
+    df = df[df['AvgCost'] > 0]
+    df = df[df['MarketPrice'] > 0]
     
     # Reset index after all filtering
     df = df.reset_index(drop=True)
@@ -270,7 +282,7 @@ def create_dashboard_tab(df, region_name, currency_symbol="$"):
     with row1_col1:
         st.subheader("🎯 P&L by Strategy")
         pnl_strat = df.groupby('Strategy Name')['UnrealizedPnL'].sum().reset_index()
-        pnl_strat = pnl_strat.sort_values('UnrealizedPnL', ascending=True)  # Sort for better visualization
+        pnl_strat = pnl_strat.sort_values('UnrealizedPnL', ascending=True)
         
         fig1 = px.bar(
             pnl_strat,
@@ -364,9 +376,40 @@ def create_dashboard_tab(df, region_name, currency_symbol="$"):
 # 🏠 MAIN APP
 # ===================================================================
 
-# Load data for both regions
-df_global_raw = load_data(GOOGLE_SHEET_CSV_URL_GLOBAL)
-df_india_raw = load_data(GOOGLE_SHEET_CSV_URL_INDIA)
+# Load data for both sheets
+# Note: You need to know the gid (sheet ID) for each sheet
+# Default: gid=0 for first sheet, gid=123456 for second sheet, etc.
+# You can find the gid in the Google Sheets URL when you click on a sheet tab
+
+df_global_raw = load_sheet_data(sheet_gid="0")  # First sheet (GLOBAL)
+df_india_raw = load_sheet_data(sheet_gid="123456")  # Second sheet (INDIA) - Replace with actual gid
+
+# If the above doesn't work with gid, let's try a different approach
+if df_global_raw.empty or df_india_raw.empty:
+    # Alternative: Try loading all sheets and separating by region column
+    st.info("Trying alternative loading method...")
+    
+    @st.cache_data(ttl=REFRESH_INTERVAL_SEC)
+    def load_all_data():
+        try:
+            # Try to load all data
+            df_all = pd.read_csv(GOOGLE_SHEET_CSV_URL)
+            return df_all
+        except Exception as e:
+            st.error(f"❌ Failed to load data: {str(e)[:150]}...")
+            return pd.DataFrame()
+    
+    df_all = load_all_data()
+    
+    if not df_all.empty:
+        # Check if there's a region column to separate data
+        if 'Region' in df_all.columns:
+            df_global_raw = df_all[df_all['Region'] == 'GLOBAL'].copy()
+            df_india_raw = df_all[df_all['Region'] == 'INDIA'].copy()
+        else:
+            # If no region column, we need to separate some other way
+            st.error("Please add a 'Region' column to your data to separate GLOBAL and INDIA entries.")
+            st.stop()
 
 # Process data
 df_global = process_data(df_global_raw, "GLOBAL", "$")
@@ -384,61 +427,35 @@ with tab2:
     create_dashboard_tab(df_india, "INDIA", "₹")
 
 # ===================================================================
-# 📊 Combined Summary (Optional - can be added if needed)
+# 📊 Combined Summary
 # ===================================================================
 st.divider()
 st.subheader("📈 Combined Region Summary")
 
 if not df_global.empty or not df_india.empty:
-    summary_data = []
-    
-    if not df_global.empty:
-        total_pnl_global = df_global['UnrealizedPnL'].sum()
-        total_volume_global = df_global['MarketValue'].abs().sum()
-        summary_data.append({
-            'Region': 'GLOBAL',
-            'Positions': len(df_global),
-            'Total P&L': total_pnl_global,
-            'Total Exposure': total_volume_global,
-            'Currency': 'USD ($)'
-        })
-    
-    if not df_india.empty:
-        total_pnl_india = df_india['UnrealizedPnL'].sum()
-        total_volume_india = df_india['MarketValue'].abs().sum()
-        summary_data.append({
-            'Region': 'INDIA',
-            'Positions': len(df_india),
-            'Total P&L': total_pnl_india,
-            'Total Exposure': total_volume_india,
-            'Currency': 'INR (₹)'
-        })
-    
-    summary_df = pd.DataFrame(summary_data)
-    
-    # Display summary
     col1, col2, col3 = st.columns(3)
     
     if not df_global.empty:
         with col1:
             st.metric(
-                label="🌍 GLOBAL P&L",
-                value=format_currency(df_global['UnrealizedPnL'].sum(), "$"),
-                delta=format_percent((df_global['UnrealizedPnL'].sum() / df_global['CostBasis'].sum() * 100) if df_global['CostBasis'].sum() != 0 else 0)
+                label="🌍 GLOBAL Portfolio",
+                value=f"{len(df_global)} positions",
+                delta=format_currency(df_global['UnrealizedPnL'].sum(), "$")
             )
     
     if not df_india.empty:
         with col2:
             st.metric(
-                label="🇮🇳 INDIA P&L",
-                value=format_currency(df_india['UnrealizedPnL'].sum(), "₹"),
-                delta=format_percent((df_india['UnrealizedPnL'].sum() / df_india['CostBasis'].sum() * 100) if df_india['CostBasis'].sum() != 0 else 0)
+                label="🇮🇳 INDIA Portfolio",
+                value=f"{len(df_india)} positions",
+                delta=format_currency(df_india['UnrealizedPnL'].sum(), "₹")
             )
     
     with col3:
         total_positions = (len(df_global) if not df_global.empty else 0) + (len(df_india) if not df_india.empty else 0)
+        total_exposure = (df_global['MarketValue'].abs().sum() if not df_global.empty else 0) + (df_india['MarketValue'].abs().sum() if not df_india.empty else 0)
         st.metric(
-            label="📊 Total Positions",
-            value=total_positions,
-            delta=None
+            label="📊 Combined Total",
+            value=f"{total_positions} positions",
+            delta=f"Exposure: {format_currency(total_exposure, '$')}"
         )

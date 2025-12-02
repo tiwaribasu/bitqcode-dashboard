@@ -534,7 +534,7 @@ function autoRefresh() {{
     // Check every 5 seconds if we need to refresh
     setTimeout(function() {{
         window.location.reload(1);
-    }}, {REFRESH_INTERVAL_SEC * 1000});
+    }}, {REFRESH_INTERVAL_SEC});
 }}
 // Start auto-refresh
 autoRefresh();

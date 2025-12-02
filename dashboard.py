@@ -455,14 +455,14 @@ st.markdown("""
 # 📊 Create Tabs with Cleaner Layout
 # ===================================================================
 tab1, tab2 = st.tabs([
-    "🌍 **GLOBAL**", 
-    "🇮🇳 **INDIA**"
+    "🌍 **GLOBAL DASHBOARD**", 
+    "🇮🇳 **INDIA DASHBOARD**"
 ])
 
 with tab1:
     # Removed the big header - just show the dashboard directly
-    create_dashboard_tab(df_global, "GLOBAL", "$")
+    create_dashboard_tab(df_global, "GLOBAL DASHBOARD", "$")
 
 with tab2:
     # Removed the big header - just show the dashboard directly
-    create_dashboard_tab(df_india, "INDIA", "₹")
+    create_dashboard_tab(df_india, "INDIA DASHBOARD", "₹")

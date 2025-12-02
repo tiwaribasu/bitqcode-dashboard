@@ -381,8 +381,8 @@ def create_dashboard_tab(df, region_name, currency_symbol="$"):
 # Default: gid=0 for first sheet, gid=123456 for second sheet, etc.
 # You can find the gid in the Google Sheets URL when you click on a sheet tab
 
-df_global_raw = load_sheet_data(sheet_gid="0")  # First sheet (GLOBAL)
-df_india_raw = load_sheet_data(sheet_gid="123456")  # Second sheet (INDIA) - Replace with actual gid
+df_global_raw = load_sheet_data(sheet_gid="5320120")  # First sheet (GLOBAL)
+df_india_raw = load_sheet_data(sheet_gid="649765105")  # Second sheet (INDIA) - Replace with actual gid
 
 # If the above doesn't work with gid, let's try a different approach
 if df_global_raw.empty or df_india_raw.empty:

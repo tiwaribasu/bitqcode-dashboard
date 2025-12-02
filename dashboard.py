@@ -4,7 +4,6 @@ import plotly.express as px
 import numpy as np
 from datetime import datetime
 import pytz
-import time
 
 # ===================================================================
 # 🛠️ CONFIGURATION
@@ -58,24 +57,21 @@ def get_time_with_timezone(region):
         return now.strftime('%Y-%m-%d %H:%M:%S ET')
 
 # ===================================================================
-# 📥 Load & Clean Data — FORCE REFRESH WITH TIMESTAMP
+# 📥 Load & Clean Data — WITH AUTOMATIC REFRESH
 # ===================================================================
-def load_sheet_data_with_refresh(sheet_gid="0", force_refresh=False):
-    """Load specific sheet from Google Sheets with forced refresh"""
+@st.cache_data(ttl=REFRESH_INTERVAL_SEC)
+def load_sheet_data(sheet_gid="0"):
+    """Load specific sheet from Google Sheets using gid parameter"""
     try:
-        # Add timestamp to URL to prevent caching
-        timestamp = int(time.time() // REFRESH_INTERVAL_SEC)  # Changes every REFRESH_INTERVAL_SEC seconds
-        
         # Construct URL with gid parameter for specific sheet
         if "export?format=csv" in GOOGLE_SHEET_CSV_URL:
             # Replace or add gid parameter
             if "gid=" in GOOGLE_SHEET_CSV_URL:
-                base_url = GOOGLE_SHEET_CSV_URL.split("&gid=")[0]
-                url = f"{base_url}&gid={sheet_gid}&t={timestamp}"
+                url = GOOGLE_SHEET_CSV_URL.split("&gid=")[0] + f"&gid={sheet_gid}"
             else:
-                url = f"{GOOGLE_SHEET_CSV_URL}&gid={sheet_gid}&t={timestamp}"
+                url = GOOGLE_SHEET_CSV_URL + f"&gid={sheet_gid}"
         else:
-            url = f"{GOOGLE_SHEET_CSV_URL}?gid={sheet_gid}&format=csv&t={timestamp}"
+            url = GOOGLE_SHEET_CSV_URL + f"?gid={sheet_gid}&format=csv"
         
         df = pd.read_csv(url)
         return df
@@ -83,8 +79,9 @@ def load_sheet_data_with_refresh(sheet_gid="0", force_refresh=False):
         st.error(f"❌ Failed to load sheet {sheet_gid}: {str(e)[:150]}...")
         return pd.DataFrame()
 
+@st.cache_data(ttl=REFRESH_INTERVAL_SEC)
 def process_data(df_raw, region_name, currency_symbol="$"):
-    """Process data - no caching here"""
+    """Process data with caching"""
     if df_raw.empty:
         return pd.DataFrame()
     
@@ -152,7 +149,7 @@ def process_data(df_raw, region_name, currency_symbol="$"):
     
     return df
 
-def create_dashboard_tab(df, region_name, currency_symbol="$", update_count=0):
+def create_dashboard_tab(df, region_name, currency_symbol="$"):
     """Create dashboard for a specific region"""
     
     if df.empty:
@@ -238,11 +235,7 @@ def create_dashboard_tab(df, region_name, currency_symbol="$", update_count=0):
         )
     
     # Show appropriate timezone based on region
-    current_time = get_time_with_timezone(region_name.split()[0])
-    st.caption(f"Last updated: {current_time}")
-    
-    # Show update counter to prove it's updating
-    st.caption(f"Update count: {update_count} (refreshes every {REFRESH_INTERVAL_SEC} seconds)")
+    st.caption(f"Last updated: {get_time_with_timezone(region_name.split()[0])}")
     
     st.divider()
     
@@ -391,29 +384,14 @@ def create_dashboard_tab(df, region_name, currency_symbol="$", update_count=0):
         st.plotly_chart(fig4, use_container_width=True)
 
 # ===================================================================
-# 🏠 MAIN APP - AUTO REFRESH WITHOUT PAGE RELOAD
+# 🏠 MAIN APP - SIMPLE AND CLEAN
 # ===================================================================
 
-# Initialize session state for update tracking
-if 'update_count' not in st.session_state:
-    st.session_state.update_count = 0
-    st.session_state.last_update_time = time.time()
+# Load data for both sheets using caching with TTL
+df_global_raw = load_sheet_data(sheet_gid="5320120")  # GLOBAL sheet
+df_india_raw = load_sheet_data(sheet_gid="649765105")  # INDIA sheet
 
-# Check if it's time to update
-current_time = time.time()
-time_since_last_update = current_time - st.session_state.last_update_time
-
-# Force update every REFRESH_INTERVAL_SEC seconds
-if time_since_last_update >= REFRESH_INTERVAL_SEC:
-    st.session_state.update_count += 1
-    st.session_state.last_update_time = current_time
-    st.rerun()  # This forces Streamlit to rerun and fetch new data
-
-# Load data for both sheets (ALWAYS FRESH - no caching)
-df_global_raw = load_sheet_data_with_refresh(sheet_gid="5320120")  # GLOBAL sheet
-df_india_raw = load_sheet_data_with_refresh(sheet_gid="649765105")  # INDIA sheet
-
-# Process data (ALWAYS FRESH - no caching)
+# Process data
 df_global = process_data(df_global_raw, "GLOBAL", "$")
 df_india = process_data(df_india_raw, "INDIA", "₹")
 
@@ -456,27 +434,7 @@ st.markdown("""
     .main .block-container {
         padding-top: 1rem;
     }
-    
-    /* Blinking animation for update indicator */
-    @keyframes blink {
-        0% { opacity: 1; }
-        50% { opacity: 0.5; }
-        100% { opacity: 1; }
-    }
-    
-    .updating {
-        animation: blink 2s infinite;
-        color: #FF4B4B;
-        font-weight: bold;
-    }
 </style>
-""", unsafe_allow_html=True)
-
-# Show auto-update status
-st.markdown(f"""
-<div style="text-align: right; margin-bottom: 10px;">
-    <span class="updating">🔄 Auto-updating every {REFRESH_INTERVAL_SEC}s</span>
-</div>
 """, unsafe_allow_html=True)
 
 # ===================================================================
@@ -488,32 +446,7 @@ tab1, tab2 = st.tabs([
 ])
 
 with tab1:
-    create_dashboard_tab(df_global, "GLOBAL DASHBOARD", "$", st.session_state.update_count)
+    create_dashboard_tab(df_global, "GLOBAL DASHBOARD", "$")
 
 with tab2:
-    create_dashboard_tab(df_india, "INDIA DASHBOARD", "₹", st.session_state.update_count)
-
-# Add meta tag to prevent browser caching
-st.markdown("""
-<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-<meta http-equiv="Pragma" content="no-cache">
-<meta http-equiv="Expires" content="0">
-""", unsafe_allow_html=True)
-
-# Add JavaScript to show update status
-st.markdown(f"""
-<script>
-// Update status indicator
-function updateStatus() {{
-    const now = new Date();
-    const timeStr = now.toLocaleTimeString();
-    document.title = `BITQCODE Dashboard | Updated: ${{timeStr}}`;
-    
-    // Schedule next update
-    setTimeout(updateStatus, {REFRESH_INTERVAL_SEC * 1000});
-}}
-
-// Start update status
-updateStatus();
-</script>
-""", unsafe_allow_html=True)
+    create_dashboard_tab(df_india, "INDIA DASHBOARD", "₹")

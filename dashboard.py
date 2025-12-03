@@ -524,19 +524,19 @@ def create_india_dashboard(data_dict):
         pnl_symbol = "="
         change_text = ""
     
-    st.markdown(
-        f"""
-        <div style="text-align: center; margin-bottom: 1.2rem;">
-            <span style="font-size: 2.4rem; font-weight: 800; color: {pnl_color};">
-                {format_inr(total_pnl)}
-            </span>
-            <br>
-            <span style="font-size: 1.1rem; color: {pnl_color}; font-weight: 600;">
-                {pnl_symbol} {change_text}
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
+    # st.markdown(
+    #     f"""
+    #     <div style="text-align: center; margin-bottom: 1.2rem;">
+    #         <span style="font-size: 2.4rem; font-weight: 800; color: {pnl_color};">
+    #             {format_inr(total_pnl)}
+    #         </span>
+    #         <br>
+    #         <span style="font-size: 1.1rem; color: {pnl_color}; font-weight: 600;">
+    #             {pnl_symbol} {change_text}
+    #     </div>
+    #     """,
+    #     unsafe_allow_html=True
+    # )
     
     # ===================================================================
     # 📊 KEY METRICS

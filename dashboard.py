@@ -584,7 +584,7 @@ def create_global_dashboard(df):
         )
         st.plotly_chart(fig4, use_container_width=True)
 
-def create_india_dashboard(data_dict):
+def create_india_dashboard(data_dict, live_pnl_df):
     """Create INDIA dashboard with new format"""
     
     open_df = data_dict['open_positions']
@@ -703,6 +703,142 @@ def create_india_dashboard(data_dict):
     
     # Show appropriate timezone
     st.caption(f"Last updated: {get_time_with_timezone('INDIA')}")
+    
+    # ===================================================================
+    # 📈 LIVE P&L CHART (Today's P&L)
+    # ===================================================================
+    if not live_pnl_df.empty:
+        st.divider()
+        st.subheader("📈 Today's Live P&L Trend")
+        
+        # Get today's date for display
+        ist_tz = pytz.timezone('Asia/Kolkata')
+        today_date = datetime.now(ist_tz).strftime('%Y-%m-%d')
+        
+        # Calculate stats for display
+        if len(live_pnl_df) > 0:
+            latest_pnl = live_pnl_df['Total PnL'].iloc[-1]
+            highest_pnl = live_pnl_df['Total PnL'].max()
+            lowest_pnl = live_pnl_df['Total PnL'].min()
+            start_pnl = live_pnl_df['Total PnL'].iloc[0] if len(live_pnl_df) > 0 else 0
+            current_change = latest_pnl - start_pnl
+            
+            # Create metrics row
+            metric_col1, metric_col2, metric_col3, metric_col4 = st.columns(4)
+            
+            with metric_col1:
+                current_color = "green" if latest_pnl >= 0 else "red"
+                st.metric(
+                    label="Current P&L",
+                    value=format_inr(latest_pnl),
+                    delta=format_inr(current_change)
+                )
+            
+            with metric_col2:
+                st.metric(
+                    label="Today's High",
+                    value=format_inr(highest_pnl),
+                    delta=None
+                )
+            
+            with metric_col3:
+                st.metric(
+                    label="Today's Low",
+                    value=format_inr(lowest_pnl),
+                    delta=None
+                )
+            
+            with metric_col4:
+                data_points = len(live_pnl_df)
+                st.metric(
+                    label="Data Points",
+                    value=f"{data_points}",
+                    delta=None
+                )
+        
+        # Create professional line chart for Live P&L
+        fig = go.Figure()
+        
+        # Add the main line
+        fig.add_trace(go.Scatter(
+            x=live_pnl_df['DateTime'],
+            y=live_pnl_df['Total PnL'],
+            mode='lines+markers',
+            name='Live P&L',
+            line=dict(color='#00D4AA', width=3),
+            marker=dict(size=6, color='#00D4AA'),
+            hovertemplate='<b>Time:</b> %{x|%H:%M:%S}<br><b>P&L:</b> ₹%{y:,.2f}<extra></extra>'
+        ))
+        
+        # Add zero line reference
+        fig.add_hline(
+            y=0,
+            line_dash="dash",
+            line_color="gray",
+            line_width=1,
+            opacity=0.5
+        )
+        
+        # Add fill for positive/negative areas
+        fig.add_trace(go.Scatter(
+            x=live_pnl_df['DateTime'],
+            y=live_pnl_df['Total PnL'].where(live_pnl_df['Total PnL'] >= 0),
+            mode='none',
+            fill='tozeroy',
+            fillcolor='rgba(0, 212, 170, 0.2)',
+            name='Positive',
+            showlegend=False
+        ))
+        
+        fig.add_trace(go.Scatter(
+            x=live_pnl_df['DateTime'],
+            y=live_pnl_df['Total PnL'].where(live_pnl_df['Total PnL'] < 0),
+            mode='none',
+            fill='tozeroy',
+            fillcolor='rgba(255, 75, 75, 0.2)',
+            name='Negative',
+            showlegend=False
+        ))
+        
+        # Update layout for professional look
+        fig.update_layout(
+            height=400,
+            title=f"Live P&L Trend ({today_date})",
+            title_font=dict(size=20, color='#333'),
+            xaxis_title="Time (IST)",
+            yaxis_title="P&L (₹)",
+            plot_bgcolor='rgba(0,0,0,0)',
+            paper_bgcolor='rgba(0,0,0,0)',
+            font=dict(family="Arial, sans-serif", size=12, color="#333"),
+            hovermode='x unified',
+            xaxis=dict(
+                showgrid=True,
+                gridcolor='rgba(128, 128, 128, 0.2)',
+                tickformat='%H:%M',
+                title_font=dict(size=14)
+            ),
+            yaxis=dict(
+                showgrid=True,
+                gridcolor='rgba(128, 128, 128, 0.2)',
+                tickprefix='₹',
+                title_font=dict(size=14)
+            ),
+            legend=dict(
+                orientation="h",
+                yanchor="bottom",
+                y=1.02,
+                xanchor="right",
+                x=1
+            )
+        )
+        
+        st.plotly_chart(fig, use_container_width=True)
+        
+        # Show data summary
+        if len(live_pnl_df) > 1:
+            time_range = live_pnl_df['DateTime'].iloc[-1] - live_pnl_df['DateTime'].iloc[0]
+            avg_interval = time_range / (len(live_pnl_df) - 1) if len(live_pnl_df) > 1 else pd.Timedelta(0)
+            st.caption(f"📊 Data from {live_pnl_df['DateTime'].iloc[0].strftime('%H:%M:%S')} to {live_pnl_df['DateTime'].iloc[-1].strftime('%H:%M:%S')} | Average interval: {avg_interval.seconds // 60} min {avg_interval.seconds % 60} sec")
     
     # ===================================================================
     # 📋 OPEN POSITIONS
@@ -877,344 +1013,67 @@ def create_india_dashboard(data_dict):
         st.markdown(html_table_closed, unsafe_allow_html=True)
     
     # ===================================================================
-    # 📈 CHARTS FOR INDIA
+    # 📈 OTHER CHARTS FOR INDIA
     # ===================================================================
-    st.divider()
-    st.subheader("📊 Performance Analysis")
-    
     if not open_df.empty or not closed_df.empty:
-        chart_col1, chart_col2 = st.columns(2)
-        
-        with chart_col1:
-            # P&L Distribution Chart
-            st.subheader("💰 P&L Distribution")
-            
-            if not open_df.empty and not closed_df.empty:
-                # Combine open and closed P&L data
-                pnl_data = pd.DataFrame({
-                    'Category': ['Closed P&L', 'Unrealized P&L'],
-                    'Amount': [summary['total_closed_pnl'], summary['total_unrealized_pnl']]
-                })
-                
-                fig1 = px.bar(
-                    pnl_data,
-                    x='Category',
-                    y='Amount',
-                    color='Category',
-                    color_discrete_map={'Closed P&L': '#1f77b4', 'Unrealized P&L': '#ff7f0e'},
-                    text=[format_inr(x) for x in pnl_data['Amount']]
-                )
-                fig1.update_layout(
-                    height=300,
-                    showlegend=False,
-                    xaxis_title="",
-                    yaxis_title="Amount (₹)",
-                    plot_bgcolor='rgba(0,0,0,0)',
-                    paper_bgcolor='rgba(0,0,0,0)'
-                )
-                st.plotly_chart(fig1, use_container_width=True)
-            else:
-                st.info("No P&L data available for chart.")
-        
-        with chart_col2:
-            # Positions Overview Chart
-            st.subheader("📊 Positions Overview")
-            
-            positions_data = pd.DataFrame({
-                'Category': ['Open Positions', 'Closed Positions'],
-                'Count': [summary['open_positions_count'], summary['closed_positions_count']]
-            })
-            
-            fig2 = px.pie(
-                positions_data,
-                values='Count',
-                names='Category',
-                hole=0.4,
-                color_discrete_sequence=['#9467bd', '#8c564b']
-            )
-            fig2.update_layout(
-                height=300,
-                showlegend=True,
-                legend=dict(orientation="v", yanchor="middle", y=0.5, x=1.1)
-            )
-            st.plotly_chart(fig2, use_container_width=True)
-    
-    # ===================================================================
-    # 📈 CHARTS FOR INDIA
-    # ===================================================================
-    st.divider()
-    st.subheader("📊 Performance Analysis")
-    
-    if not open_df.empty or not closed_df.empty:
-        chart_col1, chart_col2 = st.columns(2)
-        
-        with chart_col1:
-            # P&L Distribution Chart
-            st.subheader("💰 P&L Distribution")
-            
-            if not open_df.empty and not closed_df.empty:
-                # Combine open and closed P&L data
-                pnl_data = pd.DataFrame({
-                    'Category': ['Closed P&L', 'Unrealized P&L'],
-                    'Amount': [summary['total_closed_pnl'], summary['total_unrealized_pnl']]
-                })
-                
-                fig1 = px.bar(
-                    pnl_data,
-                    x='Category',
-                    y='Amount',
-                    color='Category',
-                    color_discrete_map={'Closed P&L': '#1f77b4', 'Unrealized P&L': '#ff7f0e'},
-                    text=[format_inr(x) for x in pnl_data['Amount']]
-                )
-                fig1.update_layout(
-                    height=300,
-                    showlegend=False,
-                    xaxis_title="",
-                    yaxis_title="Amount (₹)",
-                    plot_bgcolor='rgba(0,0,0,0)',
-                    paper_bgcolor='rgba(0,0,0,0)'
-                )
-                st.plotly_chart(fig1, use_container_width=True)
-            else:
-                st.info("No P&L data available for chart.")
-        
-        with chart_col2:
-            # Positions Overview Chart
-            st.subheader("📊 Positions Overview")
-            
-            positions_data = pd.DataFrame({
-                'Category': ['Open Positions', 'Closed Positions'],
-                'Count': [summary['open_positions_count'], summary['closed_positions_count']]
-            })
-            
-            fig2 = px.pie(
-                positions_data,
-                values='Count',
-                names='Category',
-                hole=0.4,
-                color_discrete_sequence=['#9467bd', '#8c564b']
-            )
-            fig2.update_layout(
-                height=300,
-                showlegend=True,
-                legend=dict(orientation="v", yanchor="middle", y=0.5, x=1.1)
-            )
-            st.plotly_chart(fig2, use_container_width=True)
-
-def create_india_live_dashboard(live_pnl_df):
-    """Create INDIA LIVE dashboard with Live P&L chart"""
-    
-    if live_pnl_df.empty:
-        st.info("📭 No live P&L data available for today.")
-        return
-    
-    # Get today's date for display
-    ist_tz = pytz.timezone('Asia/Kolkata')
-    today_date = datetime.now(ist_tz).strftime('%Y-%m-%d')
-    
-    # ===================================================================
-    # 🎯 TODAY'S P&L SUMMARY
-    # ===================================================================
-    if len(live_pnl_df) > 0:
-        latest_pnl = live_pnl_df['Total PnL'].iloc[-1]
-        highest_pnl = live_pnl_df['Total PnL'].max()
-        lowest_pnl = live_pnl_df['Total PnL'].min()
-        start_pnl = live_pnl_df['Total PnL'].iloc[0] if len(live_pnl_df) > 0 else 0
-        current_change = latest_pnl - start_pnl
-        
-        # Determine color for latest P&L
-        latest_color = "green" if latest_pnl >= 0 else "red"
-        latest_symbol = "▲" if latest_pnl >= 0 else "▼"
-        
-        st.markdown(
-            f"""
-            <div style="text-align: center; margin-bottom: 1.2rem;">
-                <span style="font-size: 2.4rem; font-weight: 800; color: {latest_color};">
-                    {format_inr(latest_pnl)}
-                </span>
-                <br>
-                <span style="font-size: 1.1rem; color: {latest_color}; font-weight: 600;">
-                    {latest_symbol} {format_inr(current_change)} from start
-                </span>
-                <br>
-                <span style="font-size: 0.9rem; color: #666; margin-top: 0.5rem;">
-                    Live P&L for {today_date}
-                </span>
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
-    
-    # ===================================================================
-    # 📊 LIVE P&L METRICS
-    # ===================================================================
-    if len(live_pnl_df) > 0:
-        col1, col2, col3, col4 = st.columns(4)
-        
-        with col1:
-            start_pnl = live_pnl_df['Total PnL'].iloc[0] if len(live_pnl_df) > 0 else 0
-            st.markdown(
-                f"""
-                <div style="text-align: center;">
-                    <div style="font-size: 0.85rem; font-weight: 600; color: #1f77b4; margin-bottom: 0.2rem;">Starting P&L</div>
-                    <div style="font-size: 1.5rem; font-weight: 700; color: #1f77b4;">{format_inr(start_pnl)}</div>
-                </div>
-                """, 
-                unsafe_allow_html=True
-            )
-        
-        with col2:
-            highest_pnl = live_pnl_df['Total PnL'].max()
-            st.markdown(
-                f"""
-                <div style="text-align: center;">
-                    <div style="font-size: 0.85rem; font-weight: 600; color: #2ca02c; margin-bottom: 0.2rem;">Today's High</div>
-                    <div style="font-size: 1.5rem; font-weight: 700; color: #2ca02c;">{format_inr(highest_pnl)}</div>
-                </div>
-                """, 
-                unsafe_allow_html=True
-            )
-        
-        with col3:
-            lowest_pnl = live_pnl_df['Total PnL'].min()
-            st.markdown(
-                f"""
-                <div style="text-align: center;">
-                    <div style="font-size: 0.85rem; font-weight: 600; color: #d62728; margin-bottom: 0.2rem;">Today's Low</div>
-                    <div style="font-size: 1.5rem; font-weight: 700; color: #d62728;">{format_inr(lowest_pnl)}</div>
-                </div>
-                """, 
-                unsafe_allow_html=True
-            )
-        
-        with col4:
-            data_points = len(live_pnl_df)
-            st.markdown(
-                f"""
-                <div style="text-align: center;">
-                    <div style="font-size: 0.85rem; font-weight: 600; color: #9467bd; margin-bottom: 0.2rem;">Updates</div>
-                    <div style="font-size: 1.5rem; font-weight: 700; color: #9467bd;">{data_points}</div>
-                </div>
-                """, 
-                unsafe_allow_html=True
-            )
-    
-    # Show appropriate timezone
-    st.caption(f"Last updated: {get_time_with_timezone('INDIA')}")
-    
-    # ===================================================================
-    # 📈 LIVE P&L CHART
-    # ===================================================================
-    st.divider()
-    st.subheader("📈 Live P&L Trend")
-    
-    # Create professional line chart for Live P&L
-    fig = go.Figure()
-    
-    # Add the main line
-    fig.add_trace(go.Scatter(
-        x=live_pnl_df['DateTime'],
-        y=live_pnl_df['Total PnL'],
-        mode='lines+markers',
-        name='Live P&L',
-        line=dict(color='#00D4AA', width=3),
-        marker=dict(size=6, color='#00D4AA'),
-        hovertemplate='<b>Time:</b> %{x|%H:%M:%S}<br><b>P&L:</b> ₹%{y:,.2f}<extra></extra>'
-    ))
-    
-    # Add zero line reference
-    fig.add_hline(
-        y=0,
-        line_dash="dash",
-        line_color="gray",
-        line_width=1,
-        opacity=0.5
-    )
-    
-    # Add fill for positive/negative areas
-    fig.add_trace(go.Scatter(
-        x=live_pnl_df['DateTime'],
-        y=live_pnl_df['Total PnL'].where(live_pnl_df['Total PnL'] >= 0),
-        mode='none',
-        fill='tozeroy',
-        fillcolor='rgba(0, 212, 170, 0.2)',
-        name='Positive',
-        showlegend=False
-    ))
-    
-    fig.add_trace(go.Scatter(
-        x=live_pnl_df['DateTime'],
-        y=live_pnl_df['Total PnL'].where(live_pnl_df['Total PnL'] < 0),
-        mode='none',
-        fill='tozeroy',
-        fillcolor='rgba(255, 75, 75, 0.2)',
-        name='Negative',
-        showlegend=False
-    ))
-    
-    # Update layout for professional look
-    fig.update_layout(
-        height=500,
-        title=f"Live P&L Trend - {today_date}",
-        title_font=dict(size=24, color='#333', family="Arial, sans-serif"),
-        xaxis_title="Time (IST)",
-        yaxis_title="P&L (₹)",
-        plot_bgcolor='rgba(0,0,0,0)',
-        paper_bgcolor='rgba(0,0,0,0)',
-        font=dict(family="Arial, sans-serif", size=14, color="#333"),
-        hovermode='x unified',
-        xaxis=dict(
-            showgrid=True,
-            gridcolor='rgba(128, 128, 128, 0.2)',
-            tickformat='%H:%M',
-            title_font=dict(size=16),
-            tickfont=dict(size=12)
-        ),
-        yaxis=dict(
-            showgrid=True,
-            gridcolor='rgba(128, 128, 128, 0.2)',
-            tickprefix='₹',
-            title_font=dict(size=16),
-            tickfont=dict(size=12)
-        ),
-        margin=dict(l=50, r=50, t=80, b=50)
-    )
-    
-    st.plotly_chart(fig, use_container_width=True)
-    
-    # ===================================================================
-    # 📊 DATA SUMMARY
-    # ===================================================================
-    if len(live_pnl_df) > 1:
         st.divider()
-        st.subheader("📊 Data Summary")
+        st.subheader("📊 Performance Analysis")
         
-        time_range = live_pnl_df['DateTime'].iloc[-1] - live_pnl_df['DateTime'].iloc[0]
-        avg_interval = time_range / (len(live_pnl_df) - 1) if len(live_pnl_df) > 1 else pd.Timedelta(0)
+        chart_col1, chart_col2 = st.columns(2)
         
-        summary_col1, summary_col2, summary_col3 = st.columns(3)
+        with chart_col1:
+            # P&L Distribution Chart
+            st.subheader("💰 P&L Distribution")
+            
+            if not open_df.empty and not closed_df.empty:
+                # Combine open and closed P&L data
+                pnl_data = pd.DataFrame({
+                    'Category': ['Closed P&L', 'Unrealized P&L'],
+                    'Amount': [summary['total_closed_pnl'], summary['total_unrealized_pnl']]
+                })
+                
+                fig1 = px.bar(
+                    pnl_data,
+                    x='Category',
+                    y='Amount',
+                    color='Category',
+                    color_discrete_map={'Closed P&L': '#1f77b4', 'Unrealized P&L': '#ff7f0e'},
+                    text=[format_inr(x) for x in pnl_data['Amount']]
+                )
+                fig1.update_layout(
+                    height=300,
+                    showlegend=False,
+                    xaxis_title="",
+                    yaxis_title="Amount (₹)",
+                    plot_bgcolor='rgba(0,0,0,0)',
+                    paper_bgcolor='rgba(0,0,0,0)'
+                )
+                st.plotly_chart(fig1, use_container_width=True)
+            else:
+                st.info("No P&L data available for chart.")
         
-        with summary_col1:
-            st.metric(
-                label="Time Range",
-                value=f"{time_range.seconds // 3600}h {(time_range.seconds % 3600) // 60}m"
+        with chart_col2:
+            # Positions Overview Chart
+            st.subheader("📊 Positions Overview")
+            
+            positions_data = pd.DataFrame({
+                'Category': ['Open Positions', 'Closed Positions'],
+                'Count': [summary['open_positions_count'], summary['closed_positions_count']]
+            })
+            
+            fig2 = px.pie(
+                positions_data,
+                values='Count',
+                names='Category',
+                hole=0.4,
+                color_discrete_sequence=['#9467bd', '#8c564b']
             )
-        
-        with summary_col2:
-            st.metric(
-                label="Update Interval",
-                value=f"{avg_interval.seconds // 60}m {avg_interval.seconds % 60}s"
+            fig2.update_layout(
+                height=300,
+                showlegend=True,
+                legend=dict(orientation="v", yanchor="middle", y=0.5, x=1.1)
             )
-        
-        with summary_col3:
-            st.metric(
-                label="Data Range",
-                value=f"{live_pnl_df['DateTime'].iloc[0].strftime('%H:%M')} - {live_pnl_df['DateTime'].iloc[-1].strftime('%H:%M')}"
-            )
-        
-        # Show detailed time info
-        st.caption(f"📈 Data recorded from {live_pnl_df['DateTime'].iloc[0].strftime('%H:%M:%S')} to {live_pnl_df['DateTime'].iloc[-1].strftime('%H:%M:%S')} IST")
+            st.plotly_chart(fig2, use_container_width=True)
 
 # ===================================================================
 # 🏠 MAIN APP - SIMPLE AND CLEAN
@@ -1275,17 +1134,13 @@ st.markdown("""
 # ===================================================================
 # 📊 Create Tabs with Cleaner Layout
 # ===================================================================
-tab1, tab2, tab3 = st.tabs([
+tab1, tab2 = st.tabs([
     "🌍 **GLOBAL DASHBOARD**", 
-    "🇮🇳 **INDIA DASHBOARD**",
-    "📈 **INDIA LIVE**"
+    "🇮🇳 **INDIA DASHBOARD**"
 ])
 
 with tab1:
     create_global_dashboard(df_global)
 
 with tab2:
-    create_india_dashboard(india_data)
-
-with tab3:
-    create_india_live_dashboard(live_pnl_data)
+    create_india_dashboard(india_data, live_pnl_data)

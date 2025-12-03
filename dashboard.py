@@ -709,7 +709,7 @@ def create_india_dashboard(data_dict, live_pnl_df):
     # ===================================================================
     if not live_pnl_df.empty:
         st.divider()
-        st.subheader("📈 Today's Live P&L Trend")
+        # st.subheader("📈 Today's Live P&L Trend")
         
         # Get today's date for display
         ist_tz = pytz.timezone('Asia/Kolkata')

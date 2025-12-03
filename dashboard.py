@@ -612,7 +612,7 @@ def create_india_dashboard(data_dict):
     # Show appropriate timezone
     st.caption(f"Last updated: {get_time_with_timezone('INDIA')}")
     
-    # ===================================================================
+        # ===================================================================
     # 📋 OPEN POSITIONS
     # ===================================================================
     if not open_df.empty:
@@ -642,18 +642,11 @@ def create_india_dashboard(data_dict):
         open_display_df['Unrealized P&L'] = open_display_df['Unrealized P&L'].apply(format_inr)
         open_display_df['Open Exposure'] = open_display_df['Open Exposure'].apply(format_inr)
         
-        # Color styling for P&L
-        def color_india_pnl(val):
-            if isinstance(val, str):
-                if "−" in val or "₹-" in val or (val.startswith("-") and "₹" not in val):
-                    return "color: red; font-weight: bold;"
-                elif val.startswith("₹") or "+" in val:
-                    return "color: green; font-weight: bold;"
-            return ""
+        # Reset index to remove index column
+        open_display_df = open_display_df.reset_index(drop=True)
         
-        styled_open_df = open_display_df.style.map(color_india_pnl, subset=['Unrealized P&L'])
-        
-        st.dataframe(styled_open_df, use_container_width=True, height=300)
+        # Use st.table for cleaner display without index
+        st.table(open_display_df)
     
     # ===================================================================
     # 📋 CLOSED POSITIONS
@@ -683,10 +676,11 @@ def create_india_dashboard(data_dict):
         closed_display_df['Sell Price'] = closed_display_df['Sell Price'].apply(format_inr)
         closed_display_df['Realized P&L'] = closed_display_df['Realized P&L'].apply(format_inr)
         
-        # Color styling for P&L
-        styled_closed_df = closed_display_df.style.map(color_india_pnl, subset=['Realized P&L'])
+        # Reset index to remove index column
+        closed_display_df = closed_display_df.reset_index(drop=True)
         
-        st.dataframe(styled_closed_df, use_container_width=True, height=300)
+        # Use st.table for cleaner display without index
+        st.table(closed_display_df)
     
     # ===================================================================
     # 📈 CHARTS FOR INDIA

@@ -514,29 +514,29 @@ def create_india_dashboard(data_dict):
     if total_pnl > 0:
         pnl_color = "green"
         pnl_symbol = "▲"
-        change_text = f"{abs(pnl_percentage):.2f}%"
+        change_text = f"{pnl_symbol} +{abs(pnl_percentage):.2f}%"
     elif total_pnl < 0:
         pnl_color = "red"
         pnl_symbol = "▼"
-        change_text = f"{abs(pnl_percentage):.2f}%"
+        change_text = f"{pnl_symbol} -{abs(pnl_percentage):.2f}%"
     else:
         pnl_color = "gray"
-        pnl_symbol = "="
-        change_text = ""
+        change_text = "0.00%"
     
-    # st.markdown(
-    #     f"""
-    #     <div style="text-align: center; margin-bottom: 1.2rem;">
-    #         <span style="font-size: 2.4rem; font-weight: 800; color: {pnl_color};">
-    #             {format_inr(total_pnl)}
-    #         </span>
-    #         <br>
-    #         <span style="font-size: 1.1rem; color: {pnl_color}; font-weight: 600;">
-    #             {pnl_symbol} {change_text}
-    #     </div>
-    #     """,
-    #     unsafe_allow_html=True
-    # )
+    st.markdown(
+        f"""
+        <div style="text-align: center; margin-bottom: 1.2rem;">
+            <span style="font-size: 2.4rem; font-weight: 800; color: {pnl_color};">
+                {format_inr(total_pnl)}
+            </span>
+            <br>
+            <span style="font-size: 1.1rem; color: {pnl_color}; font-weight: 600;">
+                {change_text}
+            </span>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
     
     # ===================================================================
     # 📊 KEY METRICS
@@ -611,6 +611,145 @@ def create_india_dashboard(data_dict):
     
     # Show appropriate timezone
     st.caption(f"Last updated: {get_time_with_timezone('INDIA')}")
+    
+    # ===================================================================
+    # 📋 OPEN POSITIONS
+    # ===================================================================
+    if not open_df.empty:
+        st.divider()
+        st.subheader("📈 Open Positions")
+        
+        # Prepare display dataframe for open positions
+        open_display_df = open_df[[
+            'tradingsymbol', 'position_type', 'net_quantity',
+            'avg_price', 'last_price', 'unrealized_pnl', 'open_exposure'
+        ]].copy()
+        
+        # Rename columns for better display
+        open_display_df = open_display_df.rename(columns={
+            'tradingsymbol': 'Symbol',
+            'position_type': 'Position',
+            'net_quantity': 'Quantity',
+            'avg_price': 'Avg Price',
+            'last_price': 'Last Price',
+            'unrealized_pnl': 'Unrealized P&L',
+            'open_exposure': 'Open Exposure'
+        })
+        
+        # Format columns
+        open_display_df['Avg Price'] = open_display_df['Avg Price'].apply(format_inr)
+        open_display_df['Last Price'] = open_display_df['Last Price'].apply(format_inr)
+        open_display_df['Unrealized P&L'] = open_display_df['Unrealized P&L'].apply(format_inr)
+        open_display_df['Open Exposure'] = open_display_df['Open Exposure'].apply(format_inr)
+        
+        # Color styling for P&L
+        def color_india_pnl(val):
+            if isinstance(val, str):
+                if "−" in val or "₹-" in val or (val.startswith("-") and "₹" not in val):
+                    return "color: red; font-weight: bold;"
+                elif val.startswith("₹") or "+" in val:
+                    return "color: green; font-weight: bold;"
+            return ""
+        
+        styled_open_df = open_display_df.style.map(color_india_pnl, subset=['Unrealized P&L'])
+        
+        st.dataframe(styled_open_df, use_container_width=True, height=300)
+    
+    # ===================================================================
+    # 📋 CLOSED POSITIONS
+    # ===================================================================
+    if not closed_df.empty:
+        st.divider()
+        st.subheader("📊 Closed Positions (Today)")
+        
+        # Prepare display dataframe for closed positions
+        closed_display_df = closed_df[[
+            'tradingsymbol', 'buy_quantity', 'buy_price',
+            'sell_quantity', 'sell_price', 'pnl'
+        ]].copy()
+        
+        # Rename columns for better display
+        closed_display_df = closed_display_df.rename(columns={
+            'tradingsymbol': 'Symbol',
+            'buy_quantity': 'Buy Qty',
+            'buy_price': 'Buy Price',
+            'sell_quantity': 'Sell Qty',
+            'sell_price': 'Sell Price',
+            'pnl': 'Realized P&L'
+        })
+        
+        # Format columns
+        closed_display_df['Buy Price'] = closed_display_df['Buy Price'].apply(format_inr)
+        closed_display_df['Sell Price'] = closed_display_df['Sell Price'].apply(format_inr)
+        closed_display_df['Realized P&L'] = closed_display_df['Realized P&L'].apply(format_inr)
+        
+        # Color styling for P&L
+        styled_closed_df = closed_display_df.style.map(color_india_pnl, subset=['Realized P&L'])
+        
+        st.dataframe(styled_closed_df, use_container_width=True, height=300)
+    
+    # ===================================================================
+    # 📈 CHARTS FOR INDIA
+    # ===================================================================
+    st.divider()
+    st.subheader("📊 Performance Analysis")
+    
+    if not open_df.empty or not closed_df.empty:
+        chart_col1, chart_col2 = st.columns(2)
+        
+        with chart_col1:
+            # P&L Distribution Chart
+            st.subheader("💰 P&L Distribution")
+            
+            if not open_df.empty and not closed_df.empty:
+                # Combine open and closed P&L data
+                pnl_data = pd.DataFrame({
+                    'Category': ['Closed P&L', 'Unrealized P&L'],
+                    'Amount': [summary['total_closed_pnl'], summary['total_unrealized_pnl']]
+                })
+                
+                fig1 = px.bar(
+                    pnl_data,
+                    x='Category',
+                    y='Amount',
+                    color='Category',
+                    color_discrete_map={'Closed P&L': '#1f77b4', 'Unrealized P&L': '#ff7f0e'},
+                    text=[format_inr(x) for x in pnl_data['Amount']]
+                )
+                fig1.update_layout(
+                    height=300,
+                    showlegend=False,
+                    xaxis_title="",
+                    yaxis_title="Amount (₹)",
+                    plot_bgcolor='rgba(0,0,0,0)',
+                    paper_bgcolor='rgba(0,0,0,0)'
+                )
+                st.plotly_chart(fig1, use_container_width=True)
+            else:
+                st.info("No P&L data available for chart.")
+        
+        with chart_col2:
+            # Positions Overview Chart
+            st.subheader("📊 Positions Overview")
+            
+            positions_data = pd.DataFrame({
+                'Category': ['Open Positions', 'Closed Positions'],
+                'Count': [summary['open_positions_count'], summary['closed_positions_count']]
+            })
+            
+            fig2 = px.pie(
+                positions_data,
+                values='Count',
+                names='Category',
+                hole=0.4,
+                color_discrete_sequence=['#9467bd', '#8c564b']
+            )
+            fig2.update_layout(
+                height=300,
+                showlegend=True,
+                legend=dict(orientation="v", yanchor="middle", y=0.5, x=1.1)
+            )
+            st.plotly_chart(fig2, use_container_width=True)
 
 # ===================================================================
 # 🏠 MAIN APP - SIMPLE AND CLEAN

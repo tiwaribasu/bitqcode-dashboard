@@ -514,15 +514,15 @@ def create_india_dashboard(data_dict):
     if total_pnl > 0:
         pnl_color = "green"
         pnl_symbol = "🟢 ▲"
-        change_text = f"Up {abs(pnl_percentage):.2f}%"
+        change_text = f"{abs(pnl_percentage):.2f}%"
     elif total_pnl < 0:
         pnl_color = "red"
         pnl_symbol = "🔴 ▼"
-        change_text = f"Down {abs(pnl_percentage):.2f}%"
+        change_text = f"{abs(pnl_percentage):.2f}%"
     else:
         pnl_color = "gray"
         pnl_symbol = "⚪"
-        change_text = "Flat"
+        change_text = ""
     
     st.markdown(
         f"""

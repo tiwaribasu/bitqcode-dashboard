@@ -533,11 +533,11 @@ def create_india_dashboard(data_dict):
             <br>
             <span style="font-size: 1.1rem; color: {pnl_color}; font-weight: 600;">
                 {pnl_symbol} {change_text}
-            </span>
-            <br>
-            <span style="font-size: 0.9rem; color: #666; margin-top: 0.5rem;">
-                Based on ₹10,00,000 Capital
-            </span>
+            # </span>
+            # <br>
+            # <span style="font-size: 0.9rem; color: #666; margin-top: 0.5rem;">
+            #     Based on ₹10,00,000 Capital
+            # </span>
         </div>
         """,
         unsafe_allow_html=True

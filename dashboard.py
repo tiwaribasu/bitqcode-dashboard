@@ -725,13 +725,21 @@ def create_india_dashboard(data_dict, live_pnl_df):
 
 
     # ===================================================================
-    # 📈 TODAY'S LIVE P&L CHART - SINGLE LINE WITH COLOR BY VALUE
+    # 📈 TODAY'S LIVE P&L CHART - SINGLE LINE WITH COLOR BY VALUE & EXTREMES
     # ===================================================================
     if not live_pnl_df.empty:
         st.divider()
         
         # Sort by DateTime
         live_pnl_df = live_pnl_df.sort_values('DateTime')
+        
+        # Find first occurrence of highest and lowest values
+        highest_value = live_pnl_df['Total PnL'].max()
+        lowest_value = live_pnl_df['Total PnL'].min()
+        
+        # Get first occurrence of highest and lowest
+        highest_row = live_pnl_df[live_pnl_df['Total PnL'] == highest_value].iloc[0]
+        lowest_row = live_pnl_df[live_pnl_df['Total PnL'] == lowest_value].iloc[0]
         
         # Create the chart
         fig = go.Figure()
@@ -848,14 +856,56 @@ def create_india_dashboard(data_dict, live_pnl_df):
             hoverinfo='skip'
         ))
         
+        # ===================================================================
+        # 🎯 ADD HIGHEST AND LOWEST POINT MARKERS
+        # ===================================================================
+        
+        # Mark highest point (first occurrence)
+        fig.add_trace(go.Scatter(
+            x=[highest_row['DateTime']],
+            y=[highest_value],
+            mode='markers+text',
+            marker=dict(
+                size=12,
+                color='#10B981',
+                symbol='triangle-up',
+                line=dict(width=2, color='white')
+            ),
+            text=[f"  High: ₹{highest_value:,.0f}"],
+            textposition="top center",
+            textfont=dict(size=11, color='#10B981', family='Arial'),
+            hovertemplate=f'<b>Highest: ₹{highest_value:,.2f}</b><br>Time: %{{x|%H:%M:%S}}<extra></extra>',
+            showlegend=False,
+            name='Highest'
+        ))
+        
+        # Mark lowest point (first occurrence)
+        fig.add_trace(go.Scatter(
+            x=[lowest_row['DateTime']],
+            y=[lowest_value],
+            mode='markers+text',
+            marker=dict(
+                size=12,
+                color='#EF4444',
+                symbol='triangle-down',
+                line=dict(width=2, color='white')
+            ),
+            text=[f"  Low: ₹{lowest_value:,.0f}"],
+            textposition="bottom center",
+            textfont=dict(size=11, color='#EF4444', family='Arial'),
+            hovertemplate=f'<b>Lowest: ₹{lowest_value:,.2f}</b><br>Time: %{{x|%H:%M:%S}}<extra></extra>',
+            showlegend=False,
+            name='Lowest'
+        ))
+        
         # Clean layout
         fig.update_layout(
-            height=350,
+            height=380,  # Slightly taller to accommodate text
             plot_bgcolor='white',
             paper_bgcolor='white',
             font=dict(family="Inter, system-ui, sans-serif", size=12),
             hovermode='x unified',
-            margin=dict(l=0, r=0, t=0, b=0),
+            margin=dict(l=0, r=0, t=20, b=40),  # Adjusted for text
             xaxis=dict(
                 showgrid=False,
                 tickformat='%H:%M',
@@ -878,6 +928,27 @@ def create_india_dashboard(data_dict, live_pnl_df):
         
         # Display the chart
         st.plotly_chart(fig, use_container_width=True)
+        
+        # Show latest value with more info
+        if len(live_pnl_df) > 0:
+            latest_pnl = live_pnl_df['Total PnL'].iloc[-1]
+            latest_time = live_pnl_df['DateTime'].iloc[-1].strftime('%H:%M:%S')
+            pnl_color = "#10B981" if latest_pnl >= 0 else "#EF4444"
+            
+            st.markdown(
+                f"""
+                <div style="text-align: center; margin-top: 10px; padding: 10px; background: {pnl_color}10; border-radius: 8px;">
+                    <span style="font-size: 1.1rem; font-weight: 600; color: {pnl_color};">
+                        📊 Latest: {format_inr(latest_pnl)} at {latest_time}
+                    </span>
+                    <br>
+                    <span style="font-size: 0.9rem; color: #64748B;">
+                        Today's High: {format_inr(highest_value)} • Today's Low: {format_inr(lowest_value)}
+                    </span>
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
 
     
     # ===================================================================

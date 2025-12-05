@@ -862,7 +862,7 @@ def create_india_dashboard(data_dict, live_pnl_df):
 
 
     # ===================================================================
-    # 📈 TODAY'S LIVE P&L CHART - GRADIENT BY VALUE
+    # 📈 TODAY'S LIVE P&L CHART - SIMPLE COLOR BY VALUE
     # ===================================================================
     if not live_pnl_df.empty:
         st.divider()
@@ -873,85 +873,82 @@ def create_india_dashboard(data_dict, live_pnl_df):
         # Create the chart
         fig = go.Figure()
         
-        # Create color gradient based on P&L values
-        colors = []
-        for pnl in live_pnl_df['Total PnL']:
-            if pnl >= 0:
-                # Green gradient: light to dark green based on value
-                intensity = min(pnl / live_pnl_df['Total PnL'].max() if live_pnl_df['Total PnL'].max() > 0 else 1, 1)
-                green_value = int(16 + (239 * intensity))  # 10 to 239
-                colors.append(f'rgb(16, {green_value}, 129)')
-            else:
-                # Red gradient: light to dark red based on value
-                intensity = min(abs(pnl) / abs(live_pnl_df['Total PnL'].min()) if live_pnl_df['Total PnL'].min() < 0 else 1, 1)
-                red_value = int(239 + (16 * (1 - intensity)))  # 239 to 10
-                colors.append(f'rgb({red_value}, 68, 68)')
-        
-        # Add the main line with color array
-        fig.add_trace(go.Scatter(
-            x=live_pnl_df['DateTime'],
-            y=live_pnl_df['Total PnL'],
-            mode='lines',
-            line=dict(
-                shape='spline',
-                smoothing=1.0,
-                width=3,
-                color=live_pnl_df['Total PnL'].iloc[0],  # Base color
-                colorscale=[[0, '#EF4444'], [0.5, '#EF4444'], [0.5, '#10B981'], [1, '#10B981']],
-                cmin=live_pnl_df['Total PnL'].min(),
-                cmax=live_pnl_df['Total PnL'].max()
-            ),
-            hovertemplate='<b>%{x|%H:%M}</b><br>₹%{y:,.2f}<extra></extra>'
-        ))
-        
-        # Alternative: Use scatter with line for better color control
-        fig = go.Figure()
-        
-        fig.add_trace(go.Scatter(
-            x=live_pnl_df['DateTime'],
-            y=live_pnl_df['Total PnL'],
-            mode='lines',
-            line=dict(
-                shape='spline',
-                smoothing=1.0,
-                width=3
-            ),
-            marker=dict(
-                color=live_pnl_df['Total PnL'],
-                colorscale=[[0, '#EF4444'], [1, '#10B981']],
-                cmin=live_pnl_df['Total PnL'].min(),
-                cmax=live_pnl_df['Total PnL'].max(),
-                showscale=False
-            ),
-            hovertemplate='<b>%{x|%H:%M}</b><br>₹%{y:,.2f}<extra></extra>'
-        ))
-        
-        # Add area fill with gradient
-        # Positive area
+        # Create separate traces for positive and negative values
         positive_mask = live_pnl_df['Total PnL'] >= 0
+        negative_mask = live_pnl_df['Total PnL'] < 0
+        
+        # Add positive segment (green)
         if positive_mask.any():
             fig.add_trace(go.Scatter(
                 x=live_pnl_df.loc[positive_mask, 'DateTime'],
                 y=live_pnl_df.loc[positive_mask, 'Total PnL'],
-                mode='none',
-                fill='tozeroy',
-                fillcolor='rgba(16, 185, 129, 0.15)',
+                mode='lines',
+                line=dict(
+                    shape='spline',
+                    smoothing=1.0,
+                    width=3,
+                    color='#10B981'  # Green
+                ),
+                name='Positive',
                 showlegend=False,
-                hoverinfo='skip'
+                hovertemplate='<b>%{x|%H:%M}</b><br>₹%{y:,.2f}<extra></extra>'
             ))
         
-        # Negative area
-        negative_mask = live_pnl_df['Total PnL'] < 0
+        # Add negative segment (red)
         if negative_mask.any():
             fig.add_trace(go.Scatter(
                 x=live_pnl_df.loc[negative_mask, 'DateTime'],
                 y=live_pnl_df.loc[negative_mask, 'Total PnL'],
-                mode='none',
-                fill='tozeroy',
-                fillcolor='rgba(239, 68, 68, 0.15)',
+                mode='lines',
+                line=dict(
+                    shape='spline',
+                    smoothing=1.0,
+                    width=3,
+                    color='#EF4444'  # Red
+                ),
+                name='Negative',
                 showlegend=False,
-                hoverinfo='skip'
+                hovertemplate='<b>%{x|%H:%M}</b><br>₹%{y:,.2f}<extra></extra>'
             ))
+        
+        # Connect the segments at zero crossing (optional but cleaner)
+        # Find points where the line crosses zero
+        for i in range(1, len(live_pnl_df)):
+            prev_val = live_pnl_df['Total PnL'].iloc[i-1]
+            curr_val = live_pnl_df['Total PnL'].iloc[i]
+            
+            # If sign changes, add a connecting point at y=0
+            if prev_val * curr_val < 0:
+                # Linear interpolation to find time at y=0
+                prev_time = live_pnl_df['DateTime'].iloc[i-1]
+                curr_time = live_pnl_df['DateTime'].iloc[i]
+                t = -prev_val / (curr_val - prev_val)
+                zero_time = prev_time + (curr_time - prev_time) * t
+                
+                # Add small connecting segments
+                fig.add_trace(go.Scatter(
+                    x=[prev_time, zero_time],
+                    y=[prev_val, 0],
+                    mode='lines',
+                    line=dict(
+                        width=3,
+                        color='#EF4444' if prev_val < 0 else '#10B981'
+                    ),
+                    showlegend=False,
+                    hoverinfo='skip'
+                ))
+                
+                fig.add_trace(go.Scatter(
+                    x=[zero_time, curr_time],
+                    y=[0, curr_val],
+                    mode='lines',
+                    line=dict(
+                        width=3,
+                        color='#EF4444' if curr_val < 0 else '#10B981'
+                    ),
+                    showlegend=False,
+                    hoverinfo='skip'
+                ))
         
         # Add zero line
         fig.add_hline(

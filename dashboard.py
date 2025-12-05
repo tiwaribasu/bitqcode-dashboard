@@ -862,7 +862,7 @@ def create_india_dashboard(data_dict, live_pnl_df):
 
 
     # ===================================================================
-    # 📈 TODAY'S LIVE P&L CHART - COLOR BY VALUE
+    # 📈 TODAY'S LIVE P&L CHART - GRADIENT BY VALUE
     # ===================================================================
     if not live_pnl_df.empty:
         st.divider()
@@ -873,63 +873,85 @@ def create_india_dashboard(data_dict, live_pnl_df):
         # Create the chart
         fig = go.Figure()
         
-        # Create segments based on positive/negative values
-        # We need to split the line where it crosses zero
-        segments = []
-        current_segment = {'x': [], 'y': [], 'color': None}
-        
-        for i in range(len(live_pnl_df)):
-            current_val = live_pnl_df['Total PnL'].iloc[i]
-            current_time = live_pnl_df['DateTime'].iloc[i]
-            current_color = '#10B981' if current_val >= 0 else '#EF4444'  # Green/Red
-            
-            if not current_segment['x']:
-                # First point
-                current_segment['x'].append(current_time)
-                current_segment['y'].append(current_val)
-                current_segment['color'] = current_color
-            elif current_segment['color'] == current_color:
-                # Same color, continue segment
-                current_segment['x'].append(current_time)
-                current_segment['y'].append(current_val)
+        # Create color gradient based on P&L values
+        colors = []
+        for pnl in live_pnl_df['Total PnL']:
+            if pnl >= 0:
+                # Green gradient: light to dark green based on value
+                intensity = min(pnl / live_pnl_df['Total PnL'].max() if live_pnl_df['Total PnL'].max() > 0 else 1, 1)
+                green_value = int(16 + (239 * intensity))  # 10 to 239
+                colors.append(f'rgb(16, {green_value}, 129)')
             else:
-                # Color changed, save current segment and start new one
-                segments.append(current_segment.copy())
-                current_segment = {
-                    'x': [current_time],
-                    'y': [current_val],
-                    'color': current_color
-                }
+                # Red gradient: light to dark red based on value
+                intensity = min(abs(pnl) / abs(live_pnl_df['Total PnL'].min()) if live_pnl_df['Total PnL'].min() < 0 else 1, 1)
+                red_value = int(239 + (16 * (1 - intensity)))  # 239 to 10
+                colors.append(f'rgb({red_value}, 68, 68)')
         
-        # Add the last segment
-        if current_segment['x']:
-            segments.append(current_segment)
-        
-        # Add each segment as a separate trace
-        for segment in segments:
-            fig.add_trace(go.Scatter(
-                x=segment['x'],
-                y=segment['y'],
-                mode='lines',
-                line=dict(
-                    shape='spline',
-                    smoothing=1.0,
-                    width=3,
-                    color=segment['color']
-                ),
-                showlegend=False,
-                hoverinfo='skip'
-            ))
-        
-        # Add a single trace for hover information (invisible but provides hover)
+        # Add the main line with color array
         fig.add_trace(go.Scatter(
             x=live_pnl_df['DateTime'],
             y=live_pnl_df['Total PnL'],
             mode='lines',
-            line=dict(width=0),  # Invisible line
-            hovertemplate='<b>%{x|%H:%M}</b><br>₹%{y:,.2f}<extra></extra>',
-            showlegend=False
+            line=dict(
+                shape='spline',
+                smoothing=1.0,
+                width=3,
+                color=live_pnl_df['Total PnL'].iloc[0],  # Base color
+                colorscale=[[0, '#EF4444'], [0.5, '#EF4444'], [0.5, '#10B981'], [1, '#10B981']],
+                cmin=live_pnl_df['Total PnL'].min(),
+                cmax=live_pnl_df['Total PnL'].max()
+            ),
+            hovertemplate='<b>%{x|%H:%M}</b><br>₹%{y:,.2f}<extra></extra>'
         ))
+        
+        # Alternative: Use scatter with line for better color control
+        fig = go.Figure()
+        
+        fig.add_trace(go.Scatter(
+            x=live_pnl_df['DateTime'],
+            y=live_pnl_df['Total PnL'],
+            mode='lines',
+            line=dict(
+                shape='spline',
+                smoothing=1.0,
+                width=3
+            ),
+            marker=dict(
+                color=live_pnl_df['Total PnL'],
+                colorscale=[[0, '#EF4444'], [1, '#10B981']],
+                cmin=live_pnl_df['Total PnL'].min(),
+                cmax=live_pnl_df['Total PnL'].max(),
+                showscale=False
+            ),
+            hovertemplate='<b>%{x|%H:%M}</b><br>₹%{y:,.2f}<extra></extra>'
+        ))
+        
+        # Add area fill with gradient
+        # Positive area
+        positive_mask = live_pnl_df['Total PnL'] >= 0
+        if positive_mask.any():
+            fig.add_trace(go.Scatter(
+                x=live_pnl_df.loc[positive_mask, 'DateTime'],
+                y=live_pnl_df.loc[positive_mask, 'Total PnL'],
+                mode='none',
+                fill='tozeroy',
+                fillcolor='rgba(16, 185, 129, 0.15)',
+                showlegend=False,
+                hoverinfo='skip'
+            ))
+        
+        # Negative area
+        negative_mask = live_pnl_df['Total PnL'] < 0
+        if negative_mask.any():
+            fig.add_trace(go.Scatter(
+                x=live_pnl_df.loc[negative_mask, 'DateTime'],
+                y=live_pnl_df.loc[negative_mask, 'Total PnL'],
+                mode='none',
+                fill='tozeroy',
+                fillcolor='rgba(239, 68, 68, 0.15)',
+                showlegend=False,
+                hoverinfo='skip'
+            ))
         
         # Add zero line
         fig.add_hline(

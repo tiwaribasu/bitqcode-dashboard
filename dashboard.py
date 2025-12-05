@@ -6,14 +6,6 @@ import numpy as np
 from datetime import datetime, date
 import pytz
 
-# Force clear cache at startup
-@st.cache_resource
-def clear_all_caches():
-    st.cache_data.clear()
-
-# Call it once
-clear_all_caches()
-
 # ===================================================================
 # 🛠️ CONFIGURATION
 # ===================================================================

@@ -1099,6 +1099,18 @@ def create_india_dashboard(data_dict, live_pnl_df):
 # 🏠 MAIN APP - SIMPLE AND CLEAN
 # ===================================================================
 
+# Add refresh button at the top
+col1, col2 = st.columns([6, 1])
+with col1:
+    st.title("📊 BITQCODE Dashboard")
+with col2:
+    if st.button("🔄 Refresh Data", type="secondary"):
+        # Clear all cached data
+        st.cache_data.clear()
+        st.rerun()
+
+st.divider()
+
 # Load data for all sheets using caching with TTL
 df_global_raw = load_sheet_data(sheet_gid="5320120")  # GLOBAL sheet
 df_india_raw = load_sheet_data(sheet_gid="649765105")  # INDIA sheet

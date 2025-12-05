@@ -711,7 +711,7 @@ def create_india_dashboard(data_dict, live_pnl_df):
             # Convert to IST timezone for display
             # ist_tz = pytz.timezone('Asia/Kolkata')
             # last_datetime_ist = last_datetime.tz_localize('UTC').tz_convert(ist_tz)
-            formatted_time = last_datetime_ist.strftime('%Y-%m-%d %H:%M:%S IST')
+            formatted_time = last_datetime.strftime('%Y-%m-%d %H:%M:%S IST')
         else:
             formatted_time = str(last_datetime)
         

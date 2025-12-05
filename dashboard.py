@@ -298,332 +298,43 @@ def process_india_data(df_raw):
         }
     }
 
-def create_global_dashboard(df):
-    """Create GLOBAL dashboard"""
-    
-    if df.empty:
-        st.info("📭 No valid positions found for GLOBAL.")
-        return
-    
-    # Calculate volume metrics
-    total_long_volume = df[df['Long/Short'] == 'Long']['MarketValue'].abs().sum()
-    total_short_volume = df[df['Long/Short'] == 'Short']['MarketValue'].abs().sum()
-    total_volume = total_long_volume + total_short_volume
-    
-    # Totals for P&L
-    total_pnl = df['UnrealizedPnL'].sum()
-    total_pnl_pct = (total_pnl / df['CostBasis'].sum() * 100) if df['CostBasis'].sum() != 0 else 0
-    
-    # ===================================================================
-    # 🎯 BIG BOLD TOTAL P&L
-    # ===================================================================
-    pnl_color = "green" if total_pnl >= 0 else "red"
-    pnl_symbol = "▲" if total_pnl >= 0 else "▼"
-    st.markdown(
-        f"""
-        <div style="text-align: center; margin-bottom: 1.2rem;">
-            <span style="font-size: 2.4rem; font-weight: 800; color: {pnl_color};">
-                {format_currency(total_pnl, "$")}
-            </span>
-            <br>
-            <span style="font-size: 1.1rem; color: #666;">
-                {pnl_symbol} {format_percent(total_pnl_pct)}
-            </span>
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
-    
-    # ===================================================================
-    # 📊 NEW METRICS: Volume Breakdown
-    # ===================================================================
-    col1, col2, col3, col4 = st.columns(4)
-    
-    with col1:
-        st.markdown(
-            f"""
-            <div style="text-align: center;">
-                <div style="font-size: 0.95rem; font-weight: 600; color: #1f77b4; margin-bottom: 0.2rem;">Total Long Exposure</div>
-                <div style="font-size: 1.75rem; font-weight: 700; color: #1f77b4;">{format_currency(total_long_volume, "$")}</div>
-            </div>
-            """, 
-            unsafe_allow_html=True
-        )
-    
-    with col2:
-        st.markdown(
-            f"""
-            <div style="text-align: center;">
-                <div style="font-size: 0.95rem; font-weight: 600; color: #ff4b4b; margin-bottom: 0.2rem;">Total Short Exposure</div>
-                <div style="font-size: 1.75rem; font-weight: 700; color: #ff4b4b;">{format_currency(total_short_volume, "$")}</div>
-            </div>
-            """, 
-            unsafe_allow_html=True
-        )
-    
-    with col3:
-        st.markdown(
-            f"""
-            <div style="text-align: center;">
-                <div style="font-size: 0.95rem; font-weight: 600; color: #000000; margin-bottom: 0.2rem;">Total Exposure</div>
-                <div style="font-size: 1.75rem; font-weight: 700; color: #000000;">{format_currency(total_volume, "$")}</div>
-            </div>
-            """, 
-            unsafe_allow_html=True
-        )
-    
-    with col4:
-        st.markdown(
-            f"""
-            <div style="text-align: center;">
-                <div style="font-size: 0.95rem; font-weight: 600; color: #000000; margin-bottom: 0.2rem;">Positions</div>
-                <div style="font-size: 1.75rem; font-weight: 700; color: #000000;">{len(df)}</div>
-            </div>
-            """, 
-            unsafe_allow_html=True
-        )
-    
-    # Show appropriate timezone
-    st.caption(f"Last updated: {get_time_with_timezone('GLOBAL')}")
-    
-    st.divider()
-    
-    # ===================================================================
-    # 📋 Open Positions — CLEAN TABLE WITHOUT INDEX
-    # ===================================================================
-    st.subheader("📋 Open Positions")
-    
-    # Final display columns
-    display_df = df[[
-        'Strategy Name', 'Account', 'Symbol', 'SecType', 'Long/Short',
-        'Position', 'AvgCost', 'MarketPrice', 'UnrealizedPnL', 'UnrealizedPnL%'
-    ]].copy()
-    
-    # Formatting
-    display_df['AvgCost'] = display_df['AvgCost'].apply(lambda x: format_currency(x, "$"))
-    display_df['MarketPrice'] = display_df['MarketPrice'].apply(lambda x: format_currency(x, "$"))
-    display_df['UnrealizedPnL'] = display_df['UnrealizedPnL'].apply(lambda x: format_currency(x, "$"))
-    display_df['UnrealizedPnL%'] = display_df['UnrealizedPnL%'].apply(format_percent)
-    
-    # Create HTML table for GLOBAL positions
-    html_table = """
-    <div style="overflow-x: auto;">
-    <table style="width: 100%; border-collapse: collapse; margin: 10px 0;">
-        <thead>
-            <tr style="background-color: #f2f2f2;">
-                <th style="padding: 10px; text-align: left; border-bottom: 1px solid #ddd;">Strategy Name</th>
-                <th style="padding: 10px; text-align: left; border-bottom: 1px solid #ddd;">Account</th>
-                <th style="padding: 10px; text-align: left; border-bottom: 1px solid #ddd;">Symbol</th>
-                <th style="padding: 10px; text-align: left; border-bottom: 1px solid #ddd;">SecType</th>
-                <th style="padding: 10px; text-align: left; border-bottom: 1px solid #ddd;">Long/Short</th>
-                <th style="padding: 10px; text-align: left; border-bottom: 1px solid #ddd;">Position</th>
-                <th style="padding: 10px; text-align: left; border-bottom: 1px solid #ddd;">Avg Cost</th>
-                <th style="padding: 10px; text-align: left; border-bottom: 1px solid #ddd;">Market Price</th>
-                <th style="padding: 10px; text-align: left; border-bottom: 1px solid #ddd;">Unrealized P&L</th>
-                <th style="padding: 10px; text-align: left; border-bottom: 1px solid #ddd;">Unrealized P&L%</th>
-            </tr>
-        </thead>
-        <tbody>
-    """
-    
-    # Add rows with color coding for P&L
-    for _, row in display_df.iterrows():
-        html_table += '<tr>'
-        
-        # Strategy Name
-        html_table += f'<td style="padding: 8px; border-bottom: 1px solid #ddd;">{row["Strategy Name"]}</td>'
-        
-        # Account
-        html_table += f'<td style="padding: 8px; border-bottom: 1px solid #ddd;">{row["Account"]}</td>'
-        
-        # Symbol
-        html_table += f'<td style="padding: 8px; border-bottom: 1px solid #ddd;">{row["Symbol"]}</td>'
-        
-        # SecType
-        html_table += f'<td style="padding: 8px; border-bottom: 1px solid #ddd;">{row["SecType"]}</td>'
-        
-        # Long/Short
-        html_table += f'<td style="padding: 8px; border-bottom: 1px solid #ddd;">{row["Long/Short"]}</td>'
-        
-        # Position
-        html_table += f'<td style="padding: 8px; border-bottom: 1px solid #ddd; text-align: right;">{row["Position"]}</td>'
-        
-        # AvgCost
-        html_table += f'<td style="padding: 8px; border-bottom: 1px solid #ddd; text-align: right;">{row["AvgCost"]}</td>'
-        
-        # MarketPrice
-        html_table += f'<td style="padding: 8px; border-bottom: 1px solid #ddd; text-align: right;">{row["MarketPrice"]}</td>'
-        
-        # UnrealizedPnL - with color coding
-        pnl_style = "padding: 8px; border-bottom: 1px solid #ddd; text-align: right; font-weight: bold;"
-        pnl_value = row["UnrealizedPnL"]
-        if "$-" in str(pnl_value) or "-" in str(pnl_value) or "−" in str(pnl_value):
-            pnl_style += "color: red;"
-        else:
-            pnl_style += "color: green;"
-        html_table += f'<td style="{pnl_style}">{pnl_value}</td>'
-        
-        # UnrealizedPnL% - with color coding
-        pnl_pct_style = "padding: 8px; border-bottom: 1px solid #ddd; text-align: right; font-weight: bold;"
-        pnl_pct_value = row["UnrealizedPnL%"]
-        if "-" in str(pnl_pct_value) or "−" in str(pnl_pct_value):
-            pnl_pct_style += "color: red;"
-        else:
-            pnl_pct_style += "color: green;"
-        html_table += f'<td style="{pnl_pct_style}">{pnl_pct_value}</td>'
-        
-        html_table += '</tr>'
-    
-    html_table += """
-        </tbody>
-    </table>
-    </div>
-    """
-    
-    st.markdown(html_table, unsafe_allow_html=True)
-    
-    # ===================================================================
-    # 📈 Charts - 4 PROFESSIONAL PLOTS (2 per row)
-    # ===================================================================
-    # Common chart configuration
-    chart_height = 400
-    color_scale = ['#FF4B4B', '#E0E0E0', '#00D4AA']  # Red-Gray-Green professional colors
-    
-    # First row: Strategy and Long/Short
-    row1_col1, row1_col2 = st.columns(2)
-    
-    with row1_col1:
-        st.subheader("🎯 P&L by Strategy")
-        pnl_strat = df.groupby('Strategy Name')['UnrealizedPnL'].sum().reset_index()
-        pnl_strat = pnl_strat.sort_values('UnrealizedPnL', ascending=True)
-        
-        fig1 = px.bar(
-            pnl_strat,
-            x='UnrealizedPnL',
-            y='Strategy Name',
-            orientation='h',
-            color='UnrealizedPnL',
-            color_continuous_scale=color_scale,
-            color_continuous_midpoint=0
-        )
-        fig1.update_layout(
-            height=chart_height, 
-            showlegend=False, 
-            xaxis_title="P&L ($)",
-            yaxis_title="",
-            plot_bgcolor='rgba(0,0,0,0)',
-            paper_bgcolor='rgba(0,0,0,0)'
-        )
-        st.plotly_chart(fig1, use_container_width=True)
-    
-    with row1_col2:
-        st.subheader("📊 P&L by Long/Short")
-        pnl_long_short = df.groupby('Long/Short')['UnrealizedPnL'].sum().reset_index()
-        
-        fig2 = px.bar(
-            pnl_long_short,
-            x='Long/Short',
-            y='UnrealizedPnL',
-            color='UnrealizedPnL',
-            color_continuous_scale=color_scale,
-            color_continuous_midpoint=0
-        )
-        fig2.update_layout(
-            height=chart_height, 
-            showlegend=False, 
-            xaxis_title="Position Type", 
-            yaxis_title="P&L ($)",
-            plot_bgcolor='rgba(0,0,0,0)',
-            paper_bgcolor='rgba(0,0,0,0)'
-        )
-        st.plotly_chart(fig2, use_container_width=True)
-    
-    # Second row: SecType and Exposure Allocation
-    row2_col1, row2_col2 = st.columns(2)
-    
-    with row2_col1:
-        st.subheader("🔧 P&L by Security Type")
-        pnl_sectype = df.groupby('SecType')['UnrealizedPnL'].sum().reset_index()
-        pnl_sectype = pnl_sectype.sort_values('UnrealizedPnL', ascending=True)
-        
-        fig3 = px.bar(
-            pnl_sectype,
-            x='UnrealizedPnL',
-            y='SecType',
-            orientation='h',
-            color='UnrealizedPnL',
-            color_continuous_scale=color_scale,
-            color_continuous_midpoint=0
-        )
-        fig3.update_layout(
-            height=chart_height, 
-            showlegend=False, 
-            xaxis_title="P&L ($)",
-            yaxis_title="",
-            plot_bgcolor='rgba(0,0,0,0)',
-            paper_bgcolor='rgba(0,0,0,0)'
-        )
-        st.plotly_chart(fig3, use_container_width=True)
-    
-    with row2_col2:
-        st.subheader("🌍 Exposure Allocation")
-        alloc_df = df.copy()
-        alloc_df['AbsExposure'] = alloc_df['MarketValue'].abs()
-        
-        # Use professional color palette for pie chart
-        fig4 = px.pie(
-            alloc_df,
-            values='AbsExposure',
-            names='Symbol',
-            hole=0.4,
-            color_discrete_sequence=px.colors.qualitative.Bold
-        )
-        fig4.update_layout(
-            height=chart_height,
-            showlegend=True,
-            legend=dict(orientation="v", yanchor="middle", y=0.5, x=1.1)
-        )
-        st.plotly_chart(fig4, use_container_width=True)
-
-def create_india_dashboard(data_dict, live_pnl_df):
-    """Create INDIA dashboard with new format"""
+def create_dashboard(data_dict, live_pnl_df, region="INDIA"):
+    """Create dashboard for either INDIA or GLOBAL region"""
     
     open_df = data_dict['open_positions']
     closed_df = data_dict['closed_positions']
     summary = data_dict['summary']
     
     if open_df.empty and closed_df.empty:
-        st.info("📭 No positions found for INDIA.")
+        st.info(f"📭 No positions found for {region}.")
         return
+    
+    # Get appropriate currency formatter
+    format_currency_func = format_inr if region == "INDIA" else lambda x: format_currency(x, "$")
+    currency_symbol = "₹" if region == "INDIA" else "$"
     
     # ===================================================================
     # 🎯 BIG BOLD TOTAL P&L (Closed + Unrealized)
     # ===================================================================
     total_pnl = summary.get('total_pnl', 0)
-    capital = 991002.7  # Fixed capital amount
-    pnl_percentage = (total_pnl / capital) * 100 if capital > 0 else 0
+    capital = 991002.7 if region == "INDIA" else 1000000  # Adjust capital as needed
     
     # Determine arrow and color
     if total_pnl > 0:
         pnl_color = "green"
         pnl_symbol = "▲"
-        change_text = f"{pnl_symbol} +{abs(pnl_percentage):.2f}%"
     elif total_pnl < 0:
         pnl_color = "red"
         pnl_symbol = "▼"
-        change_text = f"{pnl_symbol} -{abs(pnl_percentage):.2f}%"
     else:
         pnl_color = "gray"
-        change_text = "0.00%"
     
     st.markdown(
         f"""
         <div style="text-align: center; margin-bottom: 1.2rem;">
             <span style="font-size: 2.4rem; font-weight: 800; color: {pnl_color};">
-                {format_inr(total_pnl)}
+                {format_currency_func(total_pnl)}
             </span>
-            <br>
-            
         </div>
         """,
         unsafe_allow_html=True
@@ -639,7 +350,7 @@ def create_india_dashboard(data_dict, live_pnl_df):
             f"""
             <div style="text-align: center;">
                 <div style="font-size: 0.85rem; font-weight: 600; color: #1f77b4; margin-bottom: 0.2rem;">Closed P&L</div>
-                <div style="font-size: 1.5rem; font-weight: 700; color: #1f77b4;">{format_inr(summary.get('total_closed_pnl', 0))}</div>
+                <div style="font-size: 1.5rem; font-weight: 700; color: #1f77b4;">{format_currency_func(summary.get('total_closed_pnl', 0))}</div>
             </div>
             """, 
             unsafe_allow_html=True
@@ -650,7 +361,7 @@ def create_india_dashboard(data_dict, live_pnl_df):
             f"""
             <div style="text-align: center;">
                 <div style="font-size: 0.85rem; font-weight: 600; color: #ff7f0e; margin-bottom: 0.2rem;">Unrealized P&L</div>
-                <div style="font-size: 1.5rem; font-weight: 700; color: #ff7f0e;">{format_inr(summary.get('total_unrealized_pnl', 0))}</div>
+                <div style="font-size: 1.5rem; font-weight: 700; color: #ff7f0e;">{format_currency_func(summary.get('total_unrealized_pnl', 0))}</div>
             </div>
             """, 
             unsafe_allow_html=True
@@ -661,7 +372,7 @@ def create_india_dashboard(data_dict, live_pnl_df):
             f"""
             <div style="text-align: center;">
                 <div style="font-size: 0.85rem; font-weight: 600; color: #2ca02c; margin-bottom: 0.2rem;">Traded Volume</div>
-                <div style="font-size: 1.5rem; font-weight: 700; color: #2ca02c;">{format_inr(summary.get('total_traded_volume', 0))}</div>
+                <div style="font-size: 1.5rem; font-weight: 700; color: #2ca02c;">{format_currency_func(summary.get('total_traded_volume', 0))}</div>
             </div>
             """, 
             unsafe_allow_html=True
@@ -672,7 +383,7 @@ def create_india_dashboard(data_dict, live_pnl_df):
             f"""
             <div style="text-align: center;">
                 <div style="font-size: 0.85rem; font-weight: 600; color: #d62728; margin-bottom: 0.2rem;">Open Exposure</div>
-                <div style="font-size: 1.5rem; font-weight: 700; color: #d62728;">{format_inr(summary.get('total_open_exposure', 0))}</div>
+                <div style="font-size: 1.5rem; font-weight: 700; color: #d62728;">{format_currency_func(summary.get('total_open_exposure', 0))}</div>
             </div>
             """, 
             unsafe_allow_html=True
@@ -700,30 +411,23 @@ def create_india_dashboard(data_dict, live_pnl_df):
             unsafe_allow_html=True
         )
     
-    # ===================================================================
-    # 📅 SHOW LAST UPDATED DATETIME FROM LIVE PnL SHEET
-    # ===================================================================
+    # Show last updated datetime from LIVE PnL sheet
     if not live_pnl_df.empty and 'DateTime' in live_pnl_df.columns:
-        # Get the last datetime from the DataFrame
         last_datetime = live_pnl_df['DateTime'].iloc[-1]
-        
-        # Format the datetime nicely
         if isinstance(last_datetime, pd.Timestamp):
-            # Convert to IST timezone for display
-            # ist_tz = pytz.timezone('Asia/Kolkata')
-            # last_datetime_ist = last_datetime.tz_localize('UTC').tz_convert(ist_tz)
-            formatted_time = last_datetime.strftime('%Y-%m-%d %H:%M:%S IST')
+            # Convert to appropriate timezone
+            if region == "INDIA":
+                tz = pytz.timezone('Asia/Kolkata')
+            else:
+                tz = pytz.timezone('US/Eastern')
+            last_datetime_tz = last_datetime.tz_localize('UTC').tz_convert(tz)
+            timezone_str = "IST" if region == "INDIA" else "ET"
+            formatted_time = last_datetime_tz.strftime(f'%Y-%m-%d %H:%M:%S {timezone_str}')
         else:
             formatted_time = str(last_datetime)
         
-        # Display the last updated time with a caption
-        st.caption(f"📊 Last Updated: {formatted_time}")
-    else:
-        # Fallback to the original timezone display if no live PnL data
-        st.caption(f"Last updated: {get_time_with_timezone('INDIA')}")
-
-
-
+        st.caption(f"📊 Live P&L Last Updated: {formatted_time}")
+    
     # ===================================================================
     # 📈 TODAY'S LIVE P&L CHART - SINGLE LINE WITH COLOR BY VALUE & EXTREMES
     # ===================================================================
@@ -731,27 +435,26 @@ def create_india_dashboard(data_dict, live_pnl_df):
         st.divider()
         
         # Sort by DateTime
-        live_pnl_df = live_pnl_df.sort_values('DateTime')
+        live_pnl_df_sorted = live_pnl_df.sort_values('DateTime')
         
         # Find first occurrence of highest and lowest values
-        highest_value = live_pnl_df['Total PnL'].max()
-        lowest_value = live_pnl_df['Total PnL'].min()
+        highest_value = live_pnl_df_sorted['Total PnL'].max()
+        lowest_value = live_pnl_df_sorted['Total PnL'].min()
         
         # Get first occurrence of highest and lowest
-        highest_row = live_pnl_df[live_pnl_df['Total PnL'] == highest_value].iloc[0]
-        lowest_row = live_pnl_df[live_pnl_df['Total PnL'] == lowest_value].iloc[0]
+        highest_row = live_pnl_df_sorted[live_pnl_df_sorted['Total PnL'] == highest_value].iloc[0]
+        lowest_row = live_pnl_df_sorted[live_pnl_df_sorted['Total PnL'] == lowest_value].iloc[0]
         
         # Create the chart
         fig = go.Figure()
         
         # Create a single line that changes color based on value
-        # We need to split the line at zero crossings to handle color changes
         segments = []
         current_segment = {'x': [], 'y': [], 'color': None}
         
-        for i in range(len(live_pnl_df)):
-            current_val = live_pnl_df['Total PnL'].iloc[i]
-            current_time = live_pnl_df['DateTime'].iloc[i]
+        for i in range(len(live_pnl_df_sorted)):
+            current_val = live_pnl_df_sorted['Total PnL'].iloc[i]
+            current_time = live_pnl_df_sorted['DateTime'].iloc[i]
             current_color = '#10B981' if current_val >= 0 else '#EF4444'  # Green/Red
             
             if not current_segment['x']:
@@ -764,16 +467,12 @@ def create_india_dashboard(data_dict, live_pnl_df):
                 current_segment['x'].append(current_time)
                 current_segment['y'].append(current_val)
             else:
-                # Color changed (crossed zero), we need to handle the transition
-                
-                # 1. Save the current segment up to the zero crossing
-                prev_val = live_pnl_df['Total PnL'].iloc[i-1]
-                prev_time = live_pnl_df['DateTime'].iloc[i-1]
+                # Color changed (crossed zero), handle the transition
+                prev_val = live_pnl_df_sorted['Total PnL'].iloc[i-1]
+                prev_time = live_pnl_df_sorted['DateTime'].iloc[i-1]
                 
                 # Calculate the exact zero crossing point
-                # Linear interpolation: y = mx + b
                 m = (current_val - prev_val) / ((current_time - prev_time).total_seconds())
-                # Find time when y = 0
                 zero_time_seconds = -prev_val / m if m != 0 else 0
                 zero_time = prev_time + pd.Timedelta(seconds=zero_time_seconds)
                 
@@ -782,7 +481,7 @@ def create_india_dashboard(data_dict, live_pnl_df):
                 current_segment['y'].append(0)
                 segments.append(current_segment.copy())
                 
-                # 2. Start new segment from zero point
+                # Start new segment from zero point
                 current_segment = {
                     'x': [zero_time, current_time],
                     'y': [0, current_val],
@@ -793,7 +492,7 @@ def create_india_dashboard(data_dict, live_pnl_df):
         if current_segment['x']:
             segments.append(current_segment)
         
-        # Add all segments as separate traces (but they'll appear as one continuous line)
+        # Add all segments as separate traces
         for segment in segments:
             fig.add_trace(go.Scatter(
                 x=segment['x'],
@@ -806,16 +505,16 @@ def create_india_dashboard(data_dict, live_pnl_df):
                     color=segment['color']
                 ),
                 showlegend=False,
-                hoverinfo='skip'  # We'll add hover separately
+                hoverinfo='skip'
             ))
         
-        # Add invisible trace for hover information (makes hover work on entire line)
+        # Add invisible trace for hover information
         fig.add_trace(go.Scatter(
-            x=live_pnl_df['DateTime'],
-            y=live_pnl_df['Total PnL'],
+            x=live_pnl_df_sorted['DateTime'],
+            y=live_pnl_df_sorted['Total PnL'],
             mode='lines',
             line=dict(width=0),  # Invisible
-            hovertemplate='<b>%{x|%H:%M:%S}</b><br>₹%{y:,.2f}<extra></extra>',
+            hovertemplate=f'<b>%{{x|%H:%M:%S}}</b><br>{currency_symbol}%{{y:,.2f}}<extra></extra>',
             showlegend=False,
             name='Live P&L'
         ))
@@ -830,9 +529,8 @@ def create_india_dashboard(data_dict, live_pnl_df):
         )
         
         # Add area fill with appropriate color
-        # Create arrays for positive and negative fills
-        x_full = live_pnl_df['DateTime'].tolist()
-        y_full = live_pnl_df['Total PnL'].tolist()
+        x_full = live_pnl_df_sorted['DateTime'].tolist()
+        y_full = live_pnl_df_sorted['Total PnL'].tolist()
         
         # Fill area
         fig.add_trace(go.Scatter(
@@ -871,10 +569,10 @@ def create_india_dashboard(data_dict, live_pnl_df):
                 symbol='triangle-up',
                 line=dict(width=2, color='white')
             ),
-            text=[f"  High: ₹{highest_value:,.0f}"],
+            text=[f"  High: {currency_symbol}{highest_value:,.0f}"],
             textposition="top center",
             textfont=dict(size=11, color='#10B981', family='Arial'),
-            hovertemplate=f'<b>Highest: ₹{highest_value:,.2f}</b><br>Time: %{{x|%H:%M:%S}}<extra></extra>',
+            hovertemplate=f'<b>Highest: {currency_symbol}{highest_value:,.2f}</b><br>Time: %{{x|%H:%M:%S}}<extra></extra>',
             showlegend=False,
             name='Highest'
         ))
@@ -890,22 +588,22 @@ def create_india_dashboard(data_dict, live_pnl_df):
                 symbol='triangle-down',
                 line=dict(width=2, color='white')
             ),
-            text=[f"  Low: ₹{lowest_value:,.0f}"],
+            text=[f"  Low: {currency_symbol}{lowest_value:,.0f}"],
             textposition="bottom center",
             textfont=dict(size=11, color='#EF4444', family='Arial'),
-            hovertemplate=f'<b>Lowest: ₹{lowest_value:,.2f}</b><br>Time: %{{x|%H:%M:%S}}<extra></extra>',
+            hovertemplate=f'<b>Lowest: {currency_symbol}{lowest_value:,.2f}</b><br>Time: %{{x|%H:%M:%S}}<extra></extra>',
             showlegend=False,
             name='Lowest'
         ))
         
         # Clean layout
         fig.update_layout(
-            height=380,  # Slightly taller to accommodate text
+            height=380,
             plot_bgcolor='white',
             paper_bgcolor='white',
             font=dict(family="Inter, system-ui, sans-serif", size=12),
             hovermode='x unified',
-            margin=dict(l=0, r=0, t=20, b=40),  # Adjusted for text
+            margin=dict(l=0, r=0, t=20, b=40),
             xaxis=dict(
                 showgrid=False,
                 tickformat='%H:%M',
@@ -917,7 +615,7 @@ def create_india_dashboard(data_dict, live_pnl_df):
                 showgrid=True,
                 gridcolor='#F1F5F9',
                 gridwidth=1,
-                tickprefix='₹',
+                tickprefix=currency_symbol,
                 tickformat=',.0f',
                 tickfont=dict(size=10, color='#64748B'),
                 linecolor='#E2E8F0',
@@ -929,27 +627,26 @@ def create_india_dashboard(data_dict, live_pnl_df):
         # Display the chart
         st.plotly_chart(fig, use_container_width=True)
         
-        # # Show latest value with more info
-        # if len(live_pnl_df) > 0:
-        #     latest_pnl = live_pnl_df['Total PnL'].iloc[-1]
-        #     latest_time = live_pnl_df['DateTime'].iloc[-1].strftime('%H:%M:%S')
-        #     pnl_color = "#10B981" if latest_pnl >= 0 else "#EF4444"
+        # Show latest value with more info
+        if len(live_pnl_df_sorted) > 0:
+            latest_pnl = live_pnl_df_sorted['Total PnL'].iloc[-1]
+            latest_time = live_pnl_df_sorted['DateTime'].iloc[-1].strftime('%H:%M:%S')
+            pnl_color = "#10B981" if latest_pnl >= 0 else "#EF4444"
             
-        #     st.markdown(
-        #         f"""
-        #         <div style="text-align: center; margin-top: 10px; padding: 10px; background: {pnl_color}10; border-radius: 8px;">
-        #             <span style="font-size: 1.1rem; font-weight: 600; color: {pnl_color};">
-        #                 📊 Latest: {format_inr(latest_pnl)} at {latest_time}
-        #             </span>
-        #             <br>
-        #             <span style="font-size: 0.9rem; color: #64748B;">
-        #                 Today's High: {format_inr(highest_value)} • Today's Low: {format_inr(lowest_value)}
-        #             </span>
-        #         </div>
-        #         """,
-        #         unsafe_allow_html=True
-        #     )
-
+            st.markdown(
+                f"""
+                <div style="text-align: center; margin-top: 10px; padding: 10px; background: {pnl_color}10; border-radius: 8px;">
+                    <span style="font-size: 1.1rem; font-weight: 600; color: {pnl_color};">
+                        📊 Latest: {format_currency_func(latest_pnl)} at {latest_time}
+                    </span>
+                    <br>
+                    <span style="font-size: 0.9rem; color: #64748B;">
+                        Today's High: {format_currency_func(highest_value)} • Today's Low: {format_currency_func(lowest_value)}
+                    </span>
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
     
     # ===================================================================
     # 📋 OPEN POSITIONS
@@ -976,13 +673,13 @@ def create_india_dashboard(data_dict, live_pnl_df):
         })
         
         # Format columns
-        open_display_df['Avg Price'] = open_display_df['Avg Price'].apply(format_inr)
-        open_display_df['Last Price'] = open_display_df['Last Price'].apply(format_inr)
-        open_display_df['Unrealized P&L'] = open_display_df['Unrealized P&L'].apply(format_inr)
-        open_display_df['Open Exposure'] = open_display_df['Open Exposure'].apply(format_inr)
+        open_display_df['Avg Price'] = open_display_df['Avg Price'].apply(format_currency_func)
+        open_display_df['Last Price'] = open_display_df['Last Price'].apply(format_currency_func)
+        open_display_df['Unrealized P&L'] = open_display_df['Unrealized P&L'].apply(format_currency_func)
+        open_display_df['Open Exposure'] = open_display_df['Open Exposure'].apply(format_currency_func)
         
         # Create HTML table for open positions
-        html_table_open = """
+        html_table_open = f"""
         <div style="overflow-x: auto;">
         <table style="width: 100%; border-collapse: collapse; margin: 10px 0;">
             <thead>
@@ -1021,7 +718,7 @@ def create_india_dashboard(data_dict, live_pnl_df):
             # Unrealized P&L - with color coding
             pnl_style = "padding: 8px; border-bottom: 1px solid #ddd; text-align: right; font-weight: bold;"
             pnl_value = row["Unrealized P&L"]
-            if "₹-" in str(pnl_value) or "-" in str(pnl_value) or "−" in str(pnl_value):
+            if f"{currency_symbol}-" in str(pnl_value) or "-" in str(pnl_value) or "−" in str(pnl_value):
                 pnl_style += "color: red;"
             else:
                 pnl_style += "color: green;"
@@ -1064,12 +761,12 @@ def create_india_dashboard(data_dict, live_pnl_df):
         })
         
         # Format columns
-        closed_display_df['Buy Price'] = closed_display_df['Buy Price'].apply(format_inr)
-        closed_display_df['Sell Price'] = closed_display_df['Sell Price'].apply(format_inr)
-        closed_display_df['Realized P&L'] = closed_display_df['Realized P&L'].apply(format_inr)
+        closed_display_df['Buy Price'] = closed_display_df['Buy Price'].apply(format_currency_func)
+        closed_display_df['Sell Price'] = closed_display_df['Sell Price'].apply(format_currency_func)
+        closed_display_df['Realized P&L'] = closed_display_df['Realized P&L'].apply(format_currency_func)
         
         # Create HTML table for closed positions
-        html_table_closed = """
+        html_table_closed = f"""
         <div style="overflow-x: auto;">
         <table style="width: 100%; border-collapse: collapse; margin: 10px 0;">
             <thead>
@@ -1107,7 +804,7 @@ def create_india_dashboard(data_dict, live_pnl_df):
             # Realized P&L - with color coding
             pnl_style = "padding: 8px; border-bottom: 1px solid #ddd; text-align: right; font-weight: bold;"
             pnl_value = row["Realized P&L"]
-            if "₹-" in str(pnl_value) or "-" in str(pnl_value) or "−" in str(pnl_value):
+            if f"{currency_symbol}-" in str(pnl_value) or "-" in str(pnl_value) or "−" in str(pnl_value):
                 pnl_style += "color: red;"
             else:
                 pnl_style += "color: green;"
@@ -1187,18 +884,24 @@ def create_india_dashboard(data_dict, live_pnl_df):
             st.plotly_chart(fig2, use_container_width=True)
 
 # ===================================================================
-# 🏠 MAIN APP - SIMPLE AND CLEAN
+# 📥 Load & Clean Data — WITH AUTOMATIC REFRESH
 # ===================================================================
 
 # Load data for all sheets using caching with TTL
-df_global_raw = load_sheet_data(sheet_gid="5320120")  # GLOBAL sheet
 df_india_raw = load_sheet_data(sheet_gid="649765105")  # INDIA sheet
-df_live_pnl_raw = load_sheet_data(sheet_gid="1065660372")  # LIVE PnL sheet
+df_india_live_pnl_raw = load_sheet_data(sheet_gid="1065660372")  # INDIA LIVE PnL sheet
+
+# NEW: Load Global sheets with same structure
+df_global_raw = load_sheet_data(sheet_gid="94252270")  # IB_GLOBAL sheet
+df_global_live_pnl_raw = load_sheet_data(sheet_gid="1297846329")  # IB_GLOBAL_LIVE_PnL sheet
 
 # Process data
-df_global = process_global_data(df_global_raw)
 india_data = process_india_data(df_india_raw)
-live_pnl_data = process_live_pnl_data(df_live_pnl_raw)
+india_live_pnl_data = process_live_pnl_data(df_india_live_pnl_raw)
+
+# NEW: Process Global data using same functions (since columns are same)
+global_data = process_india_data(df_global_raw)  # Same function works for Global
+global_live_pnl_data = process_live_pnl_data(df_global_live_pnl_raw)
 
 # ===================================================================
 # 🎨 CSS for Bigger Tabs
@@ -1257,11 +960,12 @@ with tab1:
     with gcol1:
         st.write("")  # Empty
     with gcol2:
-        if st.button("🔄 Refresh Data", type="secondary", key="refresh_global"):
+        if st.button("🔄 Refresh Global", type="secondary", key="refresh_global"):
             st.cache_data.clear()
             st.rerun()
     
-    create_global_dashboard(df_global)
+    # Use the new dashboard function for Global
+    create_dashboard(global_data, global_live_pnl_data, region="GLOBAL")
 
 with tab2:
     # Refresh button at top-right of India dashboard
@@ -1269,8 +973,9 @@ with tab2:
     with icol1:
         st.write("")  # Empty
     with icol2:
-        if st.button("🔄 Refresh Data", type="secondary", key="refresh_india"):
+        if st.button("🔄 Refresh India", type="secondary", key="refresh_india"):
             st.cache_data.clear()
             st.rerun()
     
-    create_india_dashboard(india_data, live_pnl_data)
+    # Use the new dashboard function for India
+    create_dashboard(india_data, india_live_pnl_data, region="INDIA")

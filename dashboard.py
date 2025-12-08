@@ -944,7 +944,7 @@ def process_daily_pnl_data(df_raw, region="INDIA"):
 
 
 def create_daily_pnl_dashboard(daily_pnl_df, region="INDIA"):
-    """Create Daily PnL dashboard with beautiful chart similar to intraday plot"""
+    """Create simplified Daily PnL dashboard with bars for P&L and line for Capital"""
     if daily_pnl_df.empty:
         st.info(f"📭 No Daily PnL data available for {region}")
         return
@@ -960,17 +960,18 @@ def create_daily_pnl_dashboard(daily_pnl_df, region="INDIA"):
     """, unsafe_allow_html=True)
     
     # ===================================================================
-    # 📊 KEY METRICS
+    # 📊 SIMPLIFIED KEY METRICS (4 columns only)
     # ===================================================================
     col1, col2, col3, col4 = st.columns(4)
     
     with col1:
         total_gross = daily_pnl_df['Gross PnL'].sum()
+        gross_color = "#2ca02c" if total_gross >= 0 else "#d62728"
         st.markdown(
             f"""
             <div style="text-align: center;">
-                <div style="font-size: 0.85rem; font-weight: 600; color: #2ca02c; margin-bottom: 0.2rem;">Total Gross P&L</div>
-                <div style="font-size: 1.5rem; font-weight: 700; color: #2ca02c;">{format_currency_func(total_gross)}</div>
+                <div style="font-size: 0.85rem; font-weight: 600; color: {gross_color}; margin-bottom: 0.2rem;">Total Gross P&L</div>
+                <div style="font-size: 1.5rem; font-weight: 700; color: {gross_color};">{format_currency_func(total_gross)}</div>
             </div>
             """, 
             unsafe_allow_html=True
@@ -990,8 +991,7 @@ def create_daily_pnl_dashboard(daily_pnl_df, region="INDIA"):
     
     with col3:
         total_net = daily_pnl_df['Net PnL'].sum()
-        # Determine color for total net P&L
-        net_color = "#2ca02c" if total_net >= 0 else "#d62728"
+        net_color = "#10B981" if total_net >= 0 else "#EF4444"
         st.markdown(
             f"""
             <div style="text-align: center;">
@@ -1003,21 +1003,13 @@ def create_daily_pnl_dashboard(daily_pnl_df, region="INDIA"):
         )
     
     with col4:
-        # Get current capital (latest date)
         if not daily_pnl_df.empty and 'Capital' in daily_pnl_df.columns:
             current_capital = daily_pnl_df['Capital'].iloc[-1]
-            initial_capital = daily_pnl_df['Capital'].iloc[0]
-            capital_growth = current_capital - initial_capital
-            capital_color = "#2ca02c" if capital_growth >= 0 else "#d62728"
-            
             st.markdown(
                 f"""
                 <div style="text-align: center;">
-                    <div style="font-size: 0.85rem; font-weight: 600; color: #ff7f0e; margin-bottom: 0.2rem;">Current Capital</div>
-                    <div style="font-size: 1.5rem; font-weight: 700; color: #ff7f0e;">{format_currency_func(current_capital)}</div>
-                    <div style="font-size: 0.75rem; color: {capital_color};">
-                        {format_currency_func(capital_growth)} ({capital_growth/initial_capital*100:+.1f}%)
-                    </div>
+                    <div style="font-size: 0.85rem; font-weight: 600; color: #FFA500; margin-bottom: 0.2rem;">Current Capital</div>
+                    <div style="font-size: 1.5rem; font-weight: 700; color: #FFA500;">{format_currency_func(current_capital)}</div>
                 </div>
                 """, 
                 unsafe_allow_html=True
@@ -1026,8 +1018,8 @@ def create_daily_pnl_dashboard(daily_pnl_df, region="INDIA"):
             st.markdown(
                 f"""
                 <div style="text-align: center;">
-                    <div style="font-size: 0.85rem; font-weight: 600; color: #ff7f0e; margin-bottom: 0.2rem;">Current Capital</div>
-                    <div style="font-size: 1.5rem; font-weight: 700; color: #ff7f0e;">N/A</div>
+                    <div style="font-size: 0.85rem; font-weight: 600; color: #FFA500; margin-bottom: 0.2rem;">Current Capital</div>
+                    <div style="font-size: 1.5rem; font-weight: 700; color: #FFA500;">N/A</div>
                 </div>
                 """, 
                 unsafe_allow_html=True
@@ -1036,102 +1028,27 @@ def create_daily_pnl_dashboard(daily_pnl_df, region="INDIA"):
     st.divider()
     
     # ===================================================================
-    # 📈 BEAUTIFUL DUAL-AXIS CHART: Net PnL (colored by value) & Capital
+    # 📈 SIMPLE DUAL-AXIS CHART: Net PnL (colored bars) & Capital (line)
     # ===================================================================
-    st.subheader("💰 Daily Performance")
     
     # Sort by Date (ascending for proper chart)
     daily_pnl_df_sorted = daily_pnl_df.sort_values('Date')
     
     if len(daily_pnl_df_sorted) > 0:
-        # Find first occurrence of highest and lowest Net PnL values
-        highest_value = daily_pnl_df_sorted['Net PnL'].max()
-        lowest_value = daily_pnl_df_sorted['Net PnL'].min()
-        
-        # Get first occurrence of highest and lowest
-        highest_row = daily_pnl_df_sorted[daily_pnl_df_sorted['Net PnL'] == highest_value].iloc[0]
-        lowest_row = daily_pnl_df_sorted[daily_pnl_df_sorted['Net PnL'] == lowest_value].iloc[0]
-        
         # Create the chart
         fig = go.Figure()
         
-        # Create a single line for Net PnL that changes color based on value
-        segments = []
-        current_segment = {'x': [], 'y': [], 'color': None}
+        # Add Net PnL as colored bars (left Y-axis)
+        # Create color array based on Net PnL values
+        colors = ['#10B981' if val >= 0 else '#EF4444' for val in daily_pnl_df_sorted['Net PnL']]
         
-        for i in range(len(daily_pnl_df_sorted)):
-            current_val = daily_pnl_df_sorted['Net PnL'].iloc[i]
-            current_date = daily_pnl_df_sorted['Date'].iloc[i]
-            current_color = '#10B981' if current_val >= 0 else '#EF4444'  # Green/Red
-            
-            if not current_segment['x']:
-                # First point
-                current_segment['x'].append(current_date)
-                current_segment['y'].append(current_val)
-                current_segment['color'] = current_color
-            elif current_segment['color'] == current_color:
-                # Same color, continue segment
-                current_segment['x'].append(current_date)
-                current_segment['y'].append(current_val)
-            else:
-                # Color changed (crossed zero), handle the transition
-                prev_val = daily_pnl_df_sorted['Net PnL'].iloc[i-1]
-                prev_date = daily_pnl_df_sorted['Date'].iloc[i-1]
-                
-                # Calculate the exact zero crossing point
-                # For dates, we need to handle differently than time
-                days_diff = (current_date - prev_date).days
-                if days_diff > 0:
-                    # Linear interpolation for zero crossing
-                    zero_fraction = -prev_val / (current_val - prev_val) if (current_val - prev_val) != 0 else 0
-                    zero_date = prev_date + pd.Timedelta(days=days_diff * zero_fraction)
-                    
-                    # Add point at zero to complete current segment
-                    current_segment['x'].append(zero_date)
-                    current_segment['y'].append(0)
-                    segments.append(current_segment.copy())
-                    
-                    # Start new segment from zero point
-                    current_segment = {
-                        'x': [zero_date, current_date],
-                        'y': [0, current_val],
-                        'color': current_color
-                    }
-                else:
-                    # Same date, just add point
-                    current_segment['x'].append(current_date)
-                    current_segment['y'].append(current_val)
-        
-        # Add the last segment
-        if current_segment['x']:
-            segments.append(current_segment)
-        
-        # Add all segments as separate traces for Net PnL
-        for segment in segments:
-            fig.add_trace(go.Scatter(
-                x=segment['x'],
-                y=segment['y'],
-                mode='lines',
-                line=dict(
-                    shape='spline',
-                    smoothing=1.0,
-                    width=3,
-                    color=segment['color']
-                ),
-                showlegend=False,
-                hoverinfo='skip',
-                yaxis='y'
-            ))
-        
-        # Add invisible trace for hover information for Net PnL
-        fig.add_trace(go.Scatter(
+        fig.add_trace(go.Bar(
             x=daily_pnl_df_sorted['Date'],
             y=daily_pnl_df_sorted['Net PnL'],
-            mode='lines',
-            line=dict(width=0),  # Invisible
+            name='Daily Net P&L',
+            marker_color=colors,
+            opacity=0.8,
             hovertemplate=f'<b>%{{x|%Y-%m-%d}}</b><br>Net P&L: {currency_symbol}%{{y:,.2f}}<extra></extra>',
-            showlegend=False,
-            name='Net P&L',
             yaxis='y'
         ))
         
@@ -1141,8 +1058,8 @@ def create_daily_pnl_dashboard(daily_pnl_df, region="INDIA"):
                 x=daily_pnl_df_sorted['Date'],
                 y=daily_pnl_df_sorted['Capital'],
                 name='Capital',
-                mode='lines',
-                line=dict(color='#FFA500', width=3, dash='dash'),  # Orange dashed
+                mode='lines+markers',
+                line=dict(color='#FFA500', width=3),
                 marker=dict(size=8, color='#FFA500'),
                 hovertemplate=f'<b>%{{x|%Y-%m-%d}}</b><br>Capital: {currency_symbol}%{{y:,.2f}}<extra></extra>',
                 yaxis='y2'
@@ -1158,77 +1075,40 @@ def create_daily_pnl_dashboard(daily_pnl_df, region="INDIA"):
             yref="y"
         )
         
-        # Add area fill with appropriate color for Net PnL
-        x_full = daily_pnl_df_sorted['Date'].tolist()
-        y_full = daily_pnl_df_sorted['Net PnL'].tolist()
+        # Find highest and lowest values for annotation
+        highest_value = daily_pnl_df_sorted['Net PnL'].max()
+        lowest_value = daily_pnl_df_sorted['Net PnL'].min()
+        highest_date = daily_pnl_df_sorted.loc[daily_pnl_df_sorted['Net PnL'].idxmax(), 'Date']
+        lowest_date = daily_pnl_df_sorted.loc[daily_pnl_df_sorted['Net PnL'].idxmin(), 'Date']
         
-        # Fill area for positive values
-        fig.add_trace(go.Scatter(
-            x=x_full,
-            y=y_full,
-            mode='none',
-            fill='tozeroy',
-            fillcolor='rgba(16, 185, 129, 0.1)',  # Light green for positive
-            showlegend=False,
-            hoverinfo='skip',
-            yaxis='y'
-        ))
+        # Add annotations for highest and lowest
+        if highest_value > 0:
+            fig.add_annotation(
+                x=highest_date,
+                y=highest_value,
+                text=f"High: {currency_symbol}{highest_value:,.0f}",
+                showarrow=True,
+                arrowhead=2,
+                ax=0,
+                ay=-30,
+                bgcolor="#10B981",
+                font=dict(color="white", size=10),
+                yanchor="bottom"
+            )
         
-        # Also fill negative area separately (overlay)
-        fig.add_trace(go.Scatter(
-            x=x_full,
-            y=[min(y, 0) for y in y_full],  # Only negative part
-            mode='none',
-            fill='tozeroy',
-            fillcolor='rgba(239, 68, 68, 0.1)',  # Light red for negative
-            showlegend=False,
-            hoverinfo='skip',
-            yaxis='y'
-        ))
-        
-        # ===================================================================
-        # 🎯 ADD HIGHEST AND LOWEST POINT MARKERS FOR NET P&L
-        # ===================================================================
-        
-        # Mark highest point (first occurrence)
-        fig.add_trace(go.Scatter(
-            x=[highest_row['Date']],
-            y=[highest_value],
-            mode='markers+text',
-            marker=dict(
-                size=12,
-                color='#10B981',
-                symbol='triangle-up',
-                line=dict(width=2, color='white')
-            ),
-            text=[f"  High: {currency_symbol}{highest_value:,.0f}"],
-            textposition="top center",
-            textfont=dict(size=11, color='#10B981', family='Arial'),
-            hovertemplate=f'<b>Highest Net P&L: {currency_symbol}{highest_value:,.2f}</b><br>Date: %{{x|%Y-%m-%d}}<extra></extra>',
-            showlegend=False,
-            name='Highest',
-            yaxis='y'
-        ))
-        
-        # Mark lowest point (first occurrence)
-        fig.add_trace(go.Scatter(
-            x=[lowest_row['Date']],
-            y=[lowest_value],
-            mode='markers+text',
-            marker=dict(
-                size=12,
-                color='#EF4444',
-                symbol='triangle-down',
-                line=dict(width=2, color='white')
-            ),
-            text=[f"  Low: {currency_symbol}{lowest_value:,.0f}"],
-            textposition="bottom center",
-            textfont=dict(size=11, color='#EF4444', family='Arial'),
-            hovertemplate=f'<b>Lowest Net P&L: {currency_symbol}{lowest_value:,.2f}</b><br>Date: %{{x|%Y-%m-%d}}<extra></extra>',
-            showlegend=False,
-            name='Lowest',
-            yaxis='y'
-        ))
+        if lowest_value < 0:
+            fig.add_annotation(
+                x=lowest_date,
+                y=lowest_value,
+                text=f"Low: {currency_symbol}{lowest_value:,.0f}",
+                showarrow=True,
+                arrowhead=2,
+                ax=0,
+                ay=30,
+                bgcolor="#EF4444",
+                font=dict(color="white", size=10),
+                yanchor="top"
+            )
         
         # Clean layout with dual y-axes
         fig.update_layout(
@@ -1237,7 +1117,7 @@ def create_daily_pnl_dashboard(daily_pnl_df, region="INDIA"):
             paper_bgcolor='white',
             font=dict(family="Inter, system-ui, sans-serif", size=12),
             hovermode='x unified',
-            margin=dict(l=60, r=60, t=40, b=60),
+            margin=dict(l=60, r=60, t=40, b=40),
             showlegend=True,
             legend=dict(
                 orientation="h",
@@ -1246,13 +1126,15 @@ def create_daily_pnl_dashboard(daily_pnl_df, region="INDIA"):
                 xanchor="right",
                 x=1
             ),
+            bargap=0.2,
             xaxis=dict(
                 title="Date",
                 tickformat='%b %d',
                 showgrid=False,
                 tickfont=dict(size=10, color='#64748B'),
                 linecolor='#E2E8F0',
-                showline=True
+                showline=True,
+                tickangle=45
             ),
             yaxis=dict(
                 title=f"Daily Net P&L ({currency_symbol})",
@@ -1281,104 +1163,6 @@ def create_daily_pnl_dashboard(daily_pnl_df, region="INDIA"):
         
         # Display the chart
         st.plotly_chart(fig, use_container_width=True)
-        
-        # Show latest values
-        if len(daily_pnl_df_sorted) > 0:
-            latest_data = daily_pnl_df_sorted.iloc[-1]
-            latest_net_pnl = latest_data['Net PnL']
-            latest_capital = latest_data.get('Capital', 0)
-            latest_date = latest_data['Date'].strftime('%Y-%m-%d')
-            pnl_color = "#10B981" if latest_net_pnl >= 0 else "#EF4444"
-            capital_color = "#10B981" if latest_capital >= 0 else "#EF4444"
-            
-            st.markdown(
-                f"""
-                <div style="text-align: center; margin-top: 10px; padding: 10px; background: #f8f9fa; border-radius: 8px; border-left: 4px solid {pnl_color};">
-                    <span style="font-size: 1.1rem; font-weight: 600; color: {pnl_color};">
-                        📊 Latest Daily Net P&L: {format_currency_func(latest_net_pnl)} on {latest_date}
-                    </span>
-                    <br>
-                    <span style="font-size: 1rem; font-weight: 600; color: #FFA500;">
-                        💰 Current Capital: {format_currency_func(latest_capital)}
-                    </span>
-                    <br>
-                    <span style="font-size: 0.9rem; color: #64748B;">
-                        Best Day: {format_currency_func(highest_value)} • Worst Day: {format_currency_func(lowest_value)}
-                    </span>
-                </div>
-                """,
-                unsafe_allow_html=True
-            )
-    
-    st.divider()
-    
-    # ===================================================================
-    # 📋 DAILY P&L TABLE
-    # ===================================================================
-    st.subheader("📋 Daily P&L Details")
-    
-    # Prepare display dataframe (show all days, sorted by date descending)
-    display_df = daily_pnl_df.sort_values('Date', ascending=False).copy()
-    
-    # Create a nice table with color coding
-    html_table = """
-    <div style="overflow-x: auto;">
-    <table style="width: 100%; border-collapse: collapse; margin: 10px 0; font-family: Arial, sans-serif;">
-        <thead>
-            <tr style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
-                <th style="padding: 12px; text-align: left; border-bottom: 2px solid #ddd;">Date</th>
-                <th style="padding: 12px; text-align: right; border-bottom: 2px solid #ddd;">Gross P&L</th>
-                <th style="padding: 12px; text-align: right; border-bottom: 2px solid #ddd;">Charges</th>
-                <th style="padding: 12px; text-align: right; border-bottom: 2px solid #ddd;">Net P&L</th>
-                <th style="padding: 12px; text-align: right; border-bottom: 2px solid #ddd;">Capital</th>
-            </tr>
-        </thead>
-        <tbody>
-    """
-    
-    for _, row in display_df.iterrows():
-        html_table += '<tr style="border-bottom: 1px solid #e0e0e0;">'
-        
-        # Date
-        html_table += f'<td style="padding: 10px; font-weight: 600;">{row["Date_Display"]}</td>'
-        
-        # Gross P&L (color based on value)
-        gross_pnl = row["Gross PnL"]
-        gross_color = "#2ca02c" if gross_pnl >= 0 else "#d62728"
-        html_table += f'<td style="padding: 10px; text-align: right; color: {gross_color}; font-weight: 600;">{format_currency_func(gross_pnl)}</td>'
-        
-        # Charges (always red)
-        html_table += f'<td style="padding: 10px; text-align: right; color: #d62728; font-weight: 600;">{format_currency_func(row["Charges"])}</td>'
-        
-        # Net P&L (color based on value)
-        net_pnl = row["Net PnL"]
-        net_color = "#2ca02c" if net_pnl >= 0 else "#d62728"
-        html_table += f'<td style="padding: 10px; text-align: right; color: {net_color}; font-weight: 700;">{format_currency_func(net_pnl)}</td>'
-        
-        # Capital (orange)
-        capital = row.get('Capital', 0)
-        html_table += f'<td style="padding: 10px; text-align: right; color: #FFA500; font-weight: 600;">{format_currency_func(capital)}</td>'
-        
-        html_table += '</tr>'
-    
-    html_table += """
-        </tbody>
-    </table>
-    </div>
-    """
-    
-    st.markdown(html_table, unsafe_allow_html=True)
-    
-    # Show download option
-    csv = daily_pnl_df.to_csv(index=False)
-    st.download_button(
-        label="📥 Download Daily P&L Data",
-        data=csv,
-        file_name=f"{region.lower()}_daily_pnl.csv",
-        mime="text/csv",
-        type="primary"
-    )
-    
 
 
 # ===================================================================

@@ -953,12 +953,6 @@ def create_daily_pnl_dashboard(daily_pnl_df, region="INDIA"):
     format_currency_func = format_inr if region == "INDIA" else lambda x: format_currency(x, "$")
     currency_symbol = "₹" if region == "INDIA" else "$"
     
-    st.markdown(f"""
-    <div style="text-align: center; margin-bottom: 1.5rem;">
-        <h2 style="color: #1f77b4;">📅 {region} Daily P&L Dashboard</h2>
-    </div>
-    """, unsafe_allow_html=True)
-    
     # ===================================================================
     # 📊 SIMPLIFIED KEY METRICS (4 columns only)
     # ===================================================================

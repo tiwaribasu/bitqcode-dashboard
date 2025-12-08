@@ -942,56 +942,8 @@ def process_daily_pnl_data(df_raw, region="INDIA"):
     
     return df
 
-@st.cache_data(ttl=REFRESH_INTERVAL_SEC)
-def process_symbolwise_pnl_data(df_raw, region="INDIA"):
-    """Process symbol-wise PnL data for pie chart"""
-    if df_raw.empty:
-        return pd.DataFrame()
-    
-    # Clean column names
-    df = df_raw.copy()
-    df.columns = df.columns.str.strip()
-    
-    # Check for required columns
-    required_cols = ['Symbol', 'P&L']
-    if not all(col in df.columns for col in required_cols):
-        # Try alternative column names
-        alternative_cols = {
-            'Symbol': ['TradingSymbol', 'Tradingsymbol', 'Instrument', 'Stock'],
-            'P&L': ['PnL', 'Profit/Loss', 'Profit', 'Net P&L']
-        }
-        
-        for required, alternatives in alternative_cols.items():
-            if required not in df.columns:
-                for alt in alternatives:
-                    if alt in df.columns:
-                        df[required] = df[alt]
-                        break
-    
-    # Verify we have the required columns
-    if not all(col in df.columns for col in required_cols):
-        return pd.DataFrame()
-    
-    # Convert P&L to numeric
-    df['P&L'] = pd.to_numeric(df['P&L'], errors='coerce')
-    
-    # Clean data
-    df = df.dropna(subset=['Symbol', 'P&L'])
-    df = df[df['P&L'] != 0]  # Remove zero P&L
-    
-    # Group by symbol and sum P&L
-    symbol_pnl = df.groupby('Symbol')['P&L'].sum().reset_index()
-    
-    # Sort by absolute P&L (highest to lowest)
-    symbol_pnl['Abs_PnL'] = symbol_pnl['P&L'].abs()
-    symbol_pnl = symbol_pnl.sort_values('Abs_PnL', ascending=False)
-    
-    # Add region
-    symbol_pnl['Region'] = region
-    
-    return symbol_pnl
 
-def create_daily_pnl_dashboard(daily_pnl_df, symbol_pnl_df, region="INDIA"):
+def create_daily_pnl_dashboard(daily_pnl_df, region="INDIA"):
     """Create Daily PnL dashboard"""
     if daily_pnl_df.empty:
         st.info(f"No Daily PnL data available for {region}")

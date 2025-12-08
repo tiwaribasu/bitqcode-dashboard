@@ -953,15 +953,18 @@ def create_daily_pnl_dashboard(daily_pnl_df, region="INDIA"):
     format_currency_func = format_inr if region == "INDIA" else lambda x: format_currency(x, "$")
     currency_symbol = "₹" if region == "INDIA" else "$"
     
-    # st.markdown(f"""
-    # <div style="text-align: center; margin-bottom: 1.5rem;">
-    #     <h2 style="color: #1f77b4;">📅 {region} Daily P&L Dashboard</h2>
-    # </div>
-    # """, unsafe_allow_html=True)
+    st.markdown(f"""
+    <div style="text-align: center; margin-bottom: 1.5rem;">
+        <h2 style="color: #1f77b4;">📅 {region} Daily P&L Dashboard</h2>
+    </div>
+    """, unsafe_allow_html=True)
     
     # ===================================================================
     # 📊 SIMPLIFIED KEY METRICS (4 columns only)
     # ===================================================================
+    # Sort by date to ensure we get the latest capital
+    daily_pnl_sorted = daily_pnl_df.sort_values('Date', ascending=True)
+    
     col1, col2, col3, col4 = st.columns(4)
     
     with col1:
@@ -1003,8 +1006,9 @@ def create_daily_pnl_dashboard(daily_pnl_df, region="INDIA"):
         )
     
     with col4:
-        if not daily_pnl_df.empty and 'Capital' in daily_pnl_df.columns:
-            current_capital = daily_pnl_df['Capital'].iloc[-1]
+        if not daily_pnl_sorted.empty and 'Capital' in daily_pnl_sorted.columns:
+            # Get the LAST (most recent) capital value
+            current_capital = daily_pnl_sorted['Capital'].iloc[-1]
             st.markdown(
                 f"""
                 <div style="text-align: center;">
@@ -1031,8 +1035,8 @@ def create_daily_pnl_dashboard(daily_pnl_df, region="INDIA"):
     # 📈 SIMPLE DUAL-AXIS CHART: Net PnL (colored bars) & Capital (line)
     # ===================================================================
     
-    # Sort by Date (ascending for proper chart)
-    daily_pnl_df_sorted = daily_pnl_df.sort_values('Date')
+    # Sort by Date (ascending for proper chart visualization)
+    daily_pnl_df_sorted = daily_pnl_df.sort_values('Date', ascending=True)
     
     if len(daily_pnl_df_sorted) > 0:
         # Create the chart
@@ -1082,7 +1086,7 @@ def create_daily_pnl_dashboard(daily_pnl_df, region="INDIA"):
         lowest_date = daily_pnl_df_sorted.loc[daily_pnl_df_sorted['Net PnL'].idxmin(), 'Date']
         
         # Add annotations for highest and lowest
-        if highest_value > 0:
+        if highest_value > 0 and not pd.isna(highest_date):
             fig.add_annotation(
                 x=highest_date,
                 y=highest_value,
@@ -1090,13 +1094,13 @@ def create_daily_pnl_dashboard(daily_pnl_df, region="INDIA"):
                 showarrow=True,
                 arrowhead=2,
                 ax=0,
-                ay=-30,
+                ay=-40,
                 bgcolor="#10B981",
                 font=dict(color="white", size=10),
                 yanchor="bottom"
             )
         
-        if lowest_value < 0:
+        if lowest_value < 0 and not pd.isna(lowest_date):
             fig.add_annotation(
                 x=lowest_date,
                 y=lowest_value,
@@ -1104,10 +1108,29 @@ def create_daily_pnl_dashboard(daily_pnl_df, region="INDIA"):
                 showarrow=True,
                 arrowhead=2,
                 ax=0,
-                ay=30,
+                ay=40,
                 bgcolor="#EF4444",
                 font=dict(color="white", size=10),
                 yanchor="top"
+            )
+        
+        # Get the latest capital for annotation
+        if 'Capital' in daily_pnl_df_sorted.columns:
+            latest_capital = daily_pnl_df_sorted['Capital'].iloc[-1]
+            latest_date = daily_pnl_df_sorted['Date'].iloc[-1]
+            
+            fig.add_annotation(
+                x=latest_date,
+                y=latest_capital,
+                text=f"Current: {currency_symbol}{latest_capital:,.0f}",
+                showarrow=True,
+                arrowhead=2,
+                ax=0,
+                ay=-40,
+                bgcolor="#FFA500",
+                font=dict(color="white", size=10),
+                yanchor="bottom",
+                yref="y2"
             )
         
         # Clean layout with dual y-axes
@@ -1134,7 +1157,7 @@ def create_daily_pnl_dashboard(daily_pnl_df, region="INDIA"):
                 tickfont=dict(size=10, color='#64748B'),
                 linecolor='#E2E8F0',
                 showline=True,
-                tickangle=45
+                tickangle=45 if len(daily_pnl_df_sorted) > 5 else 0
             ),
             yaxis=dict(
                 title=f"Daily Net P&L ({currency_symbol})",

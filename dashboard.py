@@ -1012,10 +1012,7 @@ def create_daily_pnl_dashboard(daily_pnl_df, region="INDIA"):
                 <div style="text-align: center;">
                     <div style="font-size: 0.85rem; font-weight: 600; color: #FFA500; margin-bottom: 0.2rem;">Current Capital</div>
                     <div style="font-size: 1.5rem; font-weight: 700; color: #FFA500;">{format_currency_func(current_capital)}</div>
-                    <div style="font-size: 0.75rem; color: #666; margin-top: 0.2rem;">
-                        High: {format_currency_func(highest_capital)}<br>
-                        Low: {format_currency_func(lowest_capital)}
-                    </div>
+                    
                 </div>
                 """, 
                 unsafe_allow_html=True

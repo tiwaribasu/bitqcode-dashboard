@@ -1263,6 +1263,19 @@ with tab1:
     # Use the new dashboard function for Global
     create_dashboard(global_data, global_live_pnl_data, region="GLOBAL")
 
+with tab2:
+    # Refresh button for Global Daily PnL
+    gdcol1, gdcol2 = st.columns([5, 1])
+    with gdcol1:
+        st.write("")  # Empty
+    with gdcol2:
+        if st.button("🔄 Refresh Data", type="secondary", key="refresh_global_daily"):
+            st.cache_data.clear()
+            st.rerun()
+    
+    # Create Daily PnL dashboard for Global
+    create_daily_pnl_dashboard(global_daily_pnl_data, region="GLOBAL")
+
 with tab3:
     # Refresh button at top-right of India dashboard
     icol1, icol2 = st.columns([5, 1])
@@ -1276,18 +1289,7 @@ with tab3:
     # Use the new dashboard function for India
     create_dashboard(india_data, india_live_pnl_data, region="INDIA")
 
-with tab2:
-    # Refresh button for Global Daily PnL
-    gdcol1, gdcol2 = st.columns([5, 1])
-    with gdcol1:
-        st.write("")  # Empty
-    with gdcol2:
-        if st.button("🔄 Refresh Data", type="secondary", key="refresh_global_daily"):
-            st.cache_data.clear()
-            st.rerun()
-    
-    # Create Daily PnL dashboard for Global
-    create_daily_pnl_dashboard(global_daily_pnl_data, region="GLOBAL")
+
 
 with tab4:
     # Refresh button for India Daily PnL

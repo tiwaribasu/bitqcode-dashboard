@@ -67,7 +67,6 @@ def get_time_with_timezone(region):
 # 📥 Load & Clean Data — WITH AUTOMATIC REFRESH
 # ===================================================================
 @st.cache_data(ttl=REFRESH_INTERVAL_SEC, show_spinner=False)
-
 def load_sheet_data(sheet_gid="0"):
     """Load specific sheet from Google Sheets using gid parameter"""
     try:
@@ -889,7 +888,320 @@ def create_dashboard(data_dict, live_pnl_df, region="INDIA"):
             )
             st.plotly_chart(fig2, use_container_width=True)
 
+@st.cache_data(ttl=REFRESH_INTERVAL_SEC)
+def process_daily_pnl_data(df_raw, region="INDIA"):
+    """Process Daily PnL data for INDIA and GLOBAL"""
+    if df_raw.empty:
+        return pd.DataFrame()
+    
+    # Clean column names
+    df = df_raw.copy()
+    df.columns = df.columns.str.strip()
+    
+    # Check for required columns
+    required_cols = ['Date', 'Gross P&L', 'Charges', 'Net P&L']
+    if not all(col in df.columns for col in required_cols):
+        # Try alternative column names
+        alternative_cols = {
+            'Gross P&L': ['Gross PnL', 'GrossPnL', 'Gross'],
+            'Charges': ['Fees', 'Commission', 'Brokerage'],
+            'Net P&L': ['Net PnL', 'NetPnL', 'Net']
+        }
+        
+        for required, alternatives in alternative_cols.items():
+            if required not in df.columns:
+                for alt in alternatives:
+                    if alt in df.columns:
+                        df[required] = df[alt]
+                        break
+    
+    # Verify we have the required columns
+    if not all(col in df.columns for col in required_cols):
+        return pd.DataFrame()
+    
+    # Convert Date to datetime and sort
+    df['Date'] = pd.to_datetime(df['Date'], errors='coerce')
+    df = df.dropna(subset=['Date'])
+    
+    # Convert numeric columns
+    for col in ['Gross P&L', 'Charges', 'Net P&L']:
+        df[col] = pd.to_numeric(df[col], errors='coerce')
+    
+    # Sort by date (descending - most recent first)
+    df = df.sort_values('Date', ascending=False)
+    
+    # Calculate cumulative metrics
+    df['Cumulative Gross P&L'] = df['Gross P&L'].cumsum()
+    df['Cumulative Net P&L'] = df['Net P&L'].cumsum()
+    
+    # Format date for display
+    df['Date_Display'] = df['Date'].dt.strftime('%Y-%m-%d')
+    
+    # Add region column
+    df['Region'] = region
+    
+    return df
 
+@st.cache_data(ttl=REFRESH_INTERVAL_SEC)
+def process_symbolwise_pnl_data(df_raw, region="INDIA"):
+    """Process symbol-wise PnL data for pie chart"""
+    if df_raw.empty:
+        return pd.DataFrame()
+    
+    # Clean column names
+    df = df_raw.copy()
+    df.columns = df.columns.str.strip()
+    
+    # Check for required columns
+    required_cols = ['Symbol', 'P&L']
+    if not all(col in df.columns for col in required_cols):
+        # Try alternative column names
+        alternative_cols = {
+            'Symbol': ['TradingSymbol', 'Tradingsymbol', 'Instrument', 'Stock'],
+            'P&L': ['PnL', 'Profit/Loss', 'Profit', 'Net P&L']
+        }
+        
+        for required, alternatives in alternative_cols.items():
+            if required not in df.columns:
+                for alt in alternatives:
+                    if alt in df.columns:
+                        df[required] = df[alt]
+                        break
+    
+    # Verify we have the required columns
+    if not all(col in df.columns for col in required_cols):
+        return pd.DataFrame()
+    
+    # Convert P&L to numeric
+    df['P&L'] = pd.to_numeric(df['P&L'], errors='coerce')
+    
+    # Clean data
+    df = df.dropna(subset=['Symbol', 'P&L'])
+    df = df[df['P&L'] != 0]  # Remove zero P&L
+    
+    # Group by symbol and sum P&L
+    symbol_pnl = df.groupby('Symbol')['P&L'].sum().reset_index()
+    
+    # Sort by absolute P&L (highest to lowest)
+    symbol_pnl['Abs_PnL'] = symbol_pnl['P&L'].abs()
+    symbol_pnl = symbol_pnl.sort_values('Abs_PnL', ascending=False)
+    
+    # Add region
+    symbol_pnl['Region'] = region
+    
+    return symbol_pnl
+
+def create_daily_pnl_dashboard(daily_pnl_df, symbol_pnl_df, region="INDIA"):
+    """Create Daily PnL dashboard"""
+    if daily_pnl_df.empty:
+        st.info(f"No Daily PnL data available for {region}")
+        return
+    
+    # Get currency formatter
+    format_currency_func = format_inr if region == "INDIA" else lambda x: format_currency(x, "$")
+    currency_symbol = "₹" if region == "INDIA" else "$"
+    
+    st.subheader(f"📅 Daily P&L - {region}")
+    
+    # Display key metrics
+    col1, col2, col3, col4 = st.columns(4)
+    
+    with col1:
+        total_gross = daily_pnl_df['Gross P&L'].sum()
+        st.metric("Total Gross P&L", format_currency_func(total_gross))
+    
+    with col2:
+        total_charges = daily_pnl_df['Charges'].sum()
+        st.metric("Total Charges", format_currency_func(total_charges))
+    
+    with col3:
+        total_net = daily_pnl_df['Net P&L'].sum()
+        st.metric("Total Net P&L", format_currency_func(total_net))
+    
+    with col4:
+        days_count = len(daily_pnl_df)
+        st.metric("Days Count", days_count)
+    
+    st.divider()
+    
+    # Display Daily P&L Table
+    st.subheader("Daily Breakdown")
+    
+    # Prepare display dataframe
+    display_df = daily_pnl_df.copy()
+    display_df = display_df.head(30)  # Show last 30 days
+    
+    # Create a styled table
+    styled_df = display_df[['Date_Display', 'Gross P&L', 'Charges', 'Net P&L']].copy()
+    styled_df.columns = ['Date', 'Gross P&L', 'Charges', 'Net P&L']
+    
+    # Format currency columns
+    for col in ['Gross P&L', 'Charges', 'Net P&L']:
+        styled_df[col] = styled_df[col].apply(format_currency_func)
+    
+    st.dataframe(
+        styled_df,
+        use_container_width=True,
+        hide_index=True,
+        column_config={
+            "Date": st.column_config.TextColumn("Date", width="medium"),
+            "Gross P&L": st.column_config.TextColumn("Gross P&L", width="medium"),
+            "Charges": st.column_config.TextColumn("Charges", width="medium"),
+            "Net P&L": st.column_config.TextColumn("Net P&L", width="medium")
+        }
+    )
+    
+    st.divider()
+    
+    # Charts
+    chart_col1, chart_col2 = st.columns(2)
+    
+    with chart_col1:
+        # Daily P&L Line Chart
+        st.subheader("Daily P&L Trend")
+        
+        fig1 = go.Figure()
+        
+        # Add Net P&L line
+        fig1.add_trace(go.Scatter(
+            x=daily_pnl_df['Date'],
+            y=daily_pnl_df['Net P&L'],
+            mode='lines+markers',
+            name='Net P&L',
+            line=dict(color='#1f77b4', width=2),
+            marker=dict(size=6)
+        ))
+        
+        # Add zero line
+        fig1.add_hline(
+            y=0,
+            line_dash="dash",
+            line_color="#94A3B8",
+            line_width=1,
+            opacity=0.3
+        )
+        
+        fig1.update_layout(
+            height=400,
+            xaxis_title="Date",
+            yaxis_title=f"Net P&L ({currency_symbol})",
+            hovermode='x unified',
+            plot_bgcolor='white',
+            paper_bgcolor='white'
+        )
+        
+        st.plotly_chart(fig1, use_container_width=True)
+    
+    with chart_col2:
+        # Gross vs Net P&L Bar Chart
+        st.subheader("Gross vs Net P&L")
+        
+        # Get top 10 days for better visualization
+        top_days = daily_pnl_df.head(10).copy()
+        
+        fig2 = go.Figure()
+        
+        fig2.add_trace(go.Bar(
+            x=top_days['Date_Display'],
+            y=top_days['Gross P&L'],
+            name='Gross P&L',
+            marker_color='#2ca02c'
+        ))
+        
+        fig2.add_trace(go.Bar(
+            x=top_days['Date_Display'],
+            y=top_days['Net P&L'],
+            name='Net P&L',
+            marker_color='#1f77b4'
+        ))
+        
+        fig2.update_layout(
+            height=400,
+            xaxis_title="Date",
+            yaxis_title=f"Amount ({currency_symbol})",
+            barmode='group',
+            plot_bgcolor='white',
+            paper_bgcolor='white'
+        )
+        
+        st.plotly_chart(fig2, use_container_width=True)
+    
+    st.divider()
+    
+    # Symbol-wise P&L Pie Chart (Requirement 3)
+    if not symbol_pnl_df.empty:
+        st.subheader("💰 Symbol-wise P&L Distribution")
+        
+        # Create pie chart
+        fig3 = go.Figure()
+        
+        # Group small P&L values as "Others"
+        threshold = symbol_pnl_df['P&L'].abs().sum() * 0.02  # 2% threshold
+        large_symbols = symbol_pnl_df[symbol_pnl_df['P&L'].abs() >= threshold]
+        small_symbols = symbol_pnl_df[symbol_pnl_df['P&L'].abs() < threshold]
+        
+        if len(small_symbols) > 0:
+            others_row = pd.DataFrame({
+                'Symbol': ['Others'],
+                'P&L': [small_symbols['P&L'].sum()],
+                'Region': [region]
+            })
+            chart_data = pd.concat([large_symbols, others_row], ignore_index=True)
+        else:
+            chart_data = large_symbols
+        
+        # Create pie chart
+        fig3 = px.pie(
+            chart_data,
+            values='P&L',
+            names='Symbol',
+            hole=0.3,
+            color_discrete_sequence=px.colors.qualitative.Set3
+        )
+        
+        fig3.update_traces(
+            textposition='inside',
+            textinfo='percent+label',
+            hovertemplate="<b>%{label}</b><br>" +
+                         f"P&L: {currency_symbol}%{{value:,.2f}}<br>" +
+                         "%{percent}",
+            textfont=dict(size=10)
+        )
+        
+        fig3.update_layout(
+            height=500,
+            showlegend=True,
+            legend=dict(
+                orientation="v",
+                yanchor="middle",
+                y=0.5,
+                x=1.1,
+                font=dict(size=10)
+            ),
+            title=dict(
+                text="P&L Contribution by Symbol",
+                font=dict(size=14)
+            )
+        )
+        
+        st.plotly_chart(fig3, use_container_width=True)
+        
+        # Also show top performers table
+        st.subheader("Top Performing Symbols")
+        
+        top_symbols = symbol_pnl_df.head(10).copy()
+        top_symbols_display = top_symbols[['Symbol', 'P&L']].copy()
+        top_symbols_display['P&L'] = top_symbols_display['P&L'].apply(format_currency_func)
+        
+        st.dataframe(
+            top_symbols_display,
+            use_container_width=True,
+            hide_index=True,
+            column_config={
+                "Symbol": st.column_config.TextColumn("Symbol", width="medium"),
+                "P&L": st.column_config.TextColumn("P&L", width="medium")
+            }
+        )
 
 
 # ===================================================================

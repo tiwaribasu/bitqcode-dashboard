@@ -953,6 +953,12 @@ def create_daily_pnl_dashboard(daily_pnl_df, region="INDIA"):
     format_currency_func = format_inr if region == "INDIA" else lambda x: format_currency(x, "$")
     currency_symbol = "₹" if region == "INDIA" else "$"
     
+    st.markdown(f"""
+    <div style="text-align: center; margin-bottom: 1.5rem;">
+        <h2 style="color: #1f77b4;">📅 {region} Daily P&L Dashboard</h2>
+    </div>
+    """, unsafe_allow_html=True)
+    
     # ===================================================================
     # 📊 SIMPLIFIED KEY METRICS (4 columns only)
     # ===================================================================
@@ -1003,11 +1009,19 @@ def create_daily_pnl_dashboard(daily_pnl_df, region="INDIA"):
         if not daily_pnl_sorted.empty and 'Capital' in daily_pnl_sorted.columns:
             # Get the LAST (most recent) capital value
             current_capital = daily_pnl_sorted['Capital'].iloc[-1]
+            # Also get highest and lowest capital
+            highest_capital = daily_pnl_sorted['Capital'].max()
+            lowest_capital = daily_pnl_sorted['Capital'].min()
+            
             st.markdown(
                 f"""
                 <div style="text-align: center;">
                     <div style="font-size: 0.85rem; font-weight: 600; color: #FFA500; margin-bottom: 0.2rem;">Current Capital</div>
                     <div style="font-size: 1.5rem; font-weight: 700; color: #FFA500;">{format_currency_func(current_capital)}</div>
+                    <div style="font-size: 0.75rem; color: #666; margin-top: 0.2rem;">
+                        High: {format_currency_func(highest_capital)}<br>
+                        Low: {format_currency_func(lowest_capital)}
+                    </div>
                 </div>
                 """, 
                 unsafe_allow_html=True
@@ -1026,13 +1040,19 @@ def create_daily_pnl_dashboard(daily_pnl_df, region="INDIA"):
     st.divider()
     
     # ===================================================================
-    # 📈 SIMPLE DUAL-AXIS CHART: Net PnL (colored bars) & Capital (line)
+    # 📈 DUAL-AXIS CHART: Net PnL (colored bars) & Capital (line with markers)
     # ===================================================================
     
     # Sort by Date (ascending for proper chart visualization)
     daily_pnl_df_sorted = daily_pnl_df.sort_values('Date', ascending=True)
     
     if len(daily_pnl_df_sorted) > 0:
+        # Find highest and lowest capital values
+        highest_capital = daily_pnl_df_sorted['Capital'].max()
+        lowest_capital = daily_pnl_df_sorted['Capital'].min()
+        highest_capital_date = daily_pnl_df_sorted.loc[daily_pnl_df_sorted['Capital'].idxmax(), 'Date']
+        lowest_capital_date = daily_pnl_df_sorted.loc[daily_pnl_df_sorted['Capital'].idxmin(), 'Date']
+        
         # Create the chart
         fig = go.Figure()
         
@@ -1058,12 +1078,12 @@ def create_daily_pnl_dashboard(daily_pnl_df, region="INDIA"):
                 name='Capital',
                 mode='lines+markers',
                 line=dict(color='#FFA500', width=3),
-                marker=dict(size=8, color='#FFA500'),
+                marker=dict(size=6, color='#FFA500'),
                 hovertemplate=f'<b>%{{x|%Y-%m-%d}}</b><br>Capital: {currency_symbol}%{{y:,.2f}}<extra></extra>',
                 yaxis='y2'
             ))
         
-        # Add zero line
+        # Add zero line for Net P&L
         fig.add_hline(
             y=0,
             line_dash="dash",
@@ -1073,59 +1093,72 @@ def create_daily_pnl_dashboard(daily_pnl_df, region="INDIA"):
             yref="y"
         )
         
-        # Find highest and lowest values for annotation
-        highest_value = daily_pnl_df_sorted['Net PnL'].max()
-        lowest_value = daily_pnl_df_sorted['Net PnL'].min()
-        highest_date = daily_pnl_df_sorted.loc[daily_pnl_df_sorted['Net PnL'].idxmax(), 'Date']
-        lowest_date = daily_pnl_df_sorted.loc[daily_pnl_df_sorted['Net PnL'].idxmin(), 'Date']
+        # ===================================================================
+        # 🎯 ADD HIGHEST AND LOWEST CAPITAL MARKERS
+        # ===================================================================
         
-        # Add annotations for highest and lowest
-        if highest_value > 0 and not pd.isna(highest_date):
-            fig.add_annotation(
-                x=highest_date,
-                y=highest_value,
-                text=f"High: {currency_symbol}{highest_value:,.0f}",
-                showarrow=True,
-                arrowhead=2,
-                ax=0,
-                ay=-40,
-                bgcolor="#10B981",
-                font=dict(color="white", size=10),
-                yanchor="bottom"
-            )
+        # Mark highest capital point
+        fig.add_trace(go.Scatter(
+            x=[highest_capital_date],
+            y=[highest_capital],
+            mode='markers+text',
+            marker=dict(
+                size=14,
+                color='#FFA500',
+                symbol='triangle-up',
+                line=dict(width=2, color='white')
+            ),
+            text=[f"  High: {currency_symbol}{highest_capital:,.0f}"],
+            textposition="top center",
+            textfont=dict(size=11, color='#FFA500', family='Arial'),
+            hovertemplate=f'<b>Highest Capital: {currency_symbol}{highest_capital:,.2f}</b><br>Date: %{{x|%Y-%m-%d}}<extra></extra>',
+            showlegend=False,
+            name='Highest Capital',
+            yaxis='y2'
+        ))
         
-        if lowest_value < 0 and not pd.isna(lowest_date):
-            fig.add_annotation(
-                x=lowest_date,
-                y=lowest_value,
-                text=f"Low: {currency_symbol}{lowest_value:,.0f}",
-                showarrow=True,
-                arrowhead=2,
-                ax=0,
-                ay=40,
-                bgcolor="#EF4444",
-                font=dict(color="white", size=10),
-                yanchor="top"
-            )
+        # Mark lowest capital point
+        fig.add_trace(go.Scatter(
+            x=[lowest_capital_date],
+            y=[lowest_capital],
+            mode='markers+text',
+            marker=dict(
+                size=14,
+                color='#FFA500',
+                symbol='triangle-down',
+                line=dict(width=2, color='white')
+            ),
+            text=[f"  Low: {currency_symbol}{lowest_capital:,.0f}"],
+            textposition="bottom center",
+            textfont=dict(size=11, color='#FFA500', family='Arial'),
+            hovertemplate=f'<b>Lowest Capital: {currency_symbol}{lowest_capital:,.2f}</b><br>Date: %{{x|%Y-%m-%d}}<extra></extra>',
+            showlegend=False,
+            name='Lowest Capital',
+            yaxis='y2'
+        ))
         
-        # Get the latest capital for annotation
-        if 'Capital' in daily_pnl_df_sorted.columns:
-            latest_capital = daily_pnl_df_sorted['Capital'].iloc[-1]
-            latest_date = daily_pnl_df_sorted['Date'].iloc[-1]
-            
-            fig.add_annotation(
-                x=latest_date,
-                y=latest_capital,
-                text=f"Current: {currency_symbol}{latest_capital:,.0f}",
-                showarrow=True,
-                arrowhead=2,
-                ax=0,
-                ay=-40,
-                bgcolor="#FFA500",
-                font=dict(color="white", size=10),
-                yanchor="bottom",
-                yref="y2"
-            )
+        # Mark current capital (latest point)
+        latest_capital = daily_pnl_df_sorted['Capital'].iloc[-1]
+        latest_date = daily_pnl_df_sorted['Date'].iloc[-1]
+        
+        fig.add_trace(go.Scatter(
+            x=[latest_date],
+            y=[latest_capital],
+            mode='markers+text',
+            marker=dict(
+                size=10,
+                color='#FFA500',
+                symbol='diamond',
+                line=dict(width=2, color='white')
+            ),
+            text=[f"  Current: {currency_symbol}{latest_capital:,.0f}"],
+            textposition="top right",
+            textfont=dict(size=11, color='#FFA500', family='Arial'),
+            hovertemplate=f'<b>Current Capital: {currency_symbol}{latest_capital:,.2f}</b><br>Date: %{{x|%Y-%m-%d}}<extra></extra>',
+            showlegend=False,
+            name='Current Capital',
+            yaxis='y2'
+        ))
         
         # Clean layout with dual y-axes
         fig.update_layout(
@@ -1151,6 +1184,9 @@ def create_daily_pnl_dashboard(daily_pnl_df, region="INDIA"):
                 tickfont=dict(size=10, color='#64748B'),
                 linecolor='#E2E8F0',
                 showline=True,
+                # Show only dates that have data (no gaps for weekends/holidays)
+                type='category',
+                categoryorder='category ascending',
                 tickangle=45 if len(daily_pnl_df_sorted) > 5 else 0
             ),
             yaxis=dict(

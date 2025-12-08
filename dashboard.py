@@ -889,6 +889,9 @@ def create_dashboard(data_dict, live_pnl_df, region="INDIA"):
             )
             st.plotly_chart(fig2, use_container_width=True)
 
+
+
+
 # ===================================================================
 # 📥 Load & Clean Data — WITH AUTOMATIC REFRESH
 # ===================================================================
@@ -896,16 +899,19 @@ def create_dashboard(data_dict, live_pnl_df, region="INDIA"):
 # Load data for all sheets
 df_india_raw = load_sheet_data(sheet_gid="649765105")  # INDIA sheet
 df_india_live_pnl_raw = load_sheet_data(sheet_gid="1065660372")  # INDIA LIVE PnL sheet
+df_india_daily_pnl_raw = load_sheet_data(sheet_gid="795838620")  # INDIA Daily PnL sheet
 
 # Load Global sheets
 df_global_raw = load_sheet_data(sheet_gid="94252270")  # IB_GLOBAL sheet
 df_global_live_pnl_raw = load_sheet_data(sheet_gid="1297846329")  # IB_GLOBAL_LIVE_PnL sheet
+df_global_daily_pnl_raw = load_sheet_data(sheet_gid="1869867842")  # GLOBAL Daily PnL sheet
 
 # Process data
 india_data = process_india_data(df_india_raw)
 india_live_pnl_data = process_live_pnl_data(df_india_live_pnl_raw)
+india_daily_pnl_data = process_daily_pnl_data(df_india_daily_pnl_raw, region="INDIA")
 
-# Process Global data (if sheet loads successfully)
+# Process Global data
 if df_global_raw.empty:
     global_data = {'open_positions': pd.DataFrame(), 'closed_positions': pd.DataFrame(), 'summary': {}}
 else:
@@ -915,6 +921,8 @@ if df_global_live_pnl_raw.empty:
     global_live_pnl_data = pd.DataFrame()
 else:
     global_live_pnl_data = process_live_pnl_data(df_global_live_pnl_raw)
+
+global_daily_pnl_data = process_daily_pnl_data(df_global_daily_pnl_raw, region="GLOBAL")
 
 # ===================================================================
 # 🎨 CSS for Bigger Tabs
@@ -959,12 +967,14 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ===================================================================
-# 📊 Create Tabs
+# 📊 Create Tabs - Simplified with just 4 tabs
 # ===================================================================
 
-tab1, tab2 = st.tabs([
+tab1, tab2, tab3, tab4 = st.tabs([
     "🌍 **GLOBAL**", 
-    "🇮🇳 **INDIA**"
+    "🇮🇳 **INDIA**",
+    "📊 **GLOBAL DAILY**",
+    "📊 **INDIA DAILY**"
 ])
 
 with tab1:
@@ -992,3 +1002,29 @@ with tab2:
     
     # Use the new dashboard function for India
     create_dashboard(india_data, india_live_pnl_data, region="INDIA")
+
+with tab3:
+    # Refresh button for Global Daily PnL
+    gdcol1, gdcol2 = st.columns([5, 1])
+    with gdcol1:
+        st.write("")  # Empty
+    with gdcol2:
+        if st.button("🔄 Refresh Data", type="secondary", key="refresh_global_daily"):
+            st.cache_data.clear()
+            st.rerun()
+    
+    # Create Daily PnL dashboard for Global
+    create_daily_pnl_dashboard(global_daily_pnl_data, region="GLOBAL")
+
+with tab4:
+    # Refresh button for India Daily PnL
+    idcol1, idcol2 = st.columns([5, 1])
+    with idcol1:
+        st.write("")  # Empty
+    with idcol2:
+        if st.button("🔄 Refresh Data", type="secondary", key="refresh_india_daily"):
+            st.cache_data.clear()
+            st.rerun()
+    
+    # Create Daily PnL dashboard for India
+    create_daily_pnl_dashboard(india_daily_pnl_data, region="INDIA")

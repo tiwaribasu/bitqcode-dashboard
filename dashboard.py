@@ -1244,10 +1244,10 @@ st.markdown("""
 # ===================================================================
 
 tab1, tab2, tab3, tab4 = st.tabs([
-    "🌍 **GLOBAL**", 
-    "🇮🇳 **INDIA**",
-    "📊 **GLOBAL DAILY**",
-    "📊 **INDIA DAILY**"
+    "🌍 **GLOBAL (INTRA)**", 
+    "📊 **GLOBAL (DAILY)**",
+    "🇮🇳 **INDIA (INTRA)**",
+    "📊 **INDIA (DAILY)**"
 ])
 
 with tab1:
@@ -1263,7 +1263,7 @@ with tab1:
     # Use the new dashboard function for Global
     create_dashboard(global_data, global_live_pnl_data, region="GLOBAL")
 
-with tab2:
+with tab3:
     # Refresh button at top-right of India dashboard
     icol1, icol2 = st.columns([5, 1])
     with icol1:
@@ -1276,7 +1276,7 @@ with tab2:
     # Use the new dashboard function for India
     create_dashboard(india_data, india_live_pnl_data, region="INDIA")
 
-with tab3:
+with tab2:
     # Refresh button for Global Daily PnL
     gdcol1, gdcol2 = st.columns([5, 1])
     with gdcol1:

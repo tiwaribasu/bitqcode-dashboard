@@ -251,8 +251,6 @@ def process_india_data(df_raw):
     # Closed positions: buy_quantity == sell_quantity (fully closed)
     closed_mask = (df['buy_quantity'] > 0) & (df['sell_quantity'] > 0) & (df['buy_quantity'] == df['sell_quantity'])
     closed_df = df[closed_mask].copy()
-    closed_df = closed_df.sort_values('realized_pnl', ascending=False)
-
     
     # Open positions: buy_quantity != sell_quantity or sell_quantity == 0
     open_mask = ~closed_mask

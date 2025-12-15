@@ -942,7 +942,7 @@ def create_daily_pnl_dashboard(daily_pnl_df, region="INDIA"):
     col1, col2, col3, col4 = st.columns(4)
     
     with col1:
-        total_gross = daily_pnl_df['Gross PnL'].sum()
+        total_gross = daily_pnl_df['Gross P&L'].sum()
         gross_color = "#2ca02c" if total_gross >= 0 else "#d62728"
         st.markdown(
             f"""
@@ -967,7 +967,7 @@ def create_daily_pnl_dashboard(daily_pnl_df, region="INDIA"):
         )
     
     with col3:
-        total_net = daily_pnl_df['Net PnL'].sum()
+        total_net = daily_pnl_df['Net P&L'].sum()
         net_color = "#10B981" if total_net >= 0 else "#EF4444"
         st.markdown(
             f"""
@@ -983,16 +983,12 @@ def create_daily_pnl_dashboard(daily_pnl_df, region="INDIA"):
         if not daily_pnl_sorted.empty and 'Capital' in daily_pnl_sorted.columns:
             # Get the LAST (most recent) capital value
             current_capital = daily_pnl_sorted['Capital'].iloc[-1]
-            # Also get highest and lowest capital
-            highest_capital = daily_pnl_sorted['Capital'].max()
-            lowest_capital = daily_pnl_sorted['Capital'].min()
             
             st.markdown(
                 f"""
                 <div style="text-align: center;">
                     <div style="font-size: 0.85rem; font-weight: 600; color: #FFA500; margin-bottom: 0.2rem;">Current Capital</div>
                     <div style="font-size: 1.5rem; font-weight: 700; color: #FFA500;">{format_currency_func(current_capital)}</div>
-                    
                 </div>
                 """, 
                 unsafe_allow_html=True
@@ -1015,42 +1011,47 @@ def create_daily_pnl_dashboard(daily_pnl_df, region="INDIA"):
     # ===================================================================
     
     # Sort by Date (ascending for proper chart visualization)
-    daily_pnl_df_sorted = daily_pnl_df.sort_values('Date', ascending=True)
+    daily_pnl_df_sorted = daily_pnl_df.sort_values('Date', ascending=True).copy()
+    
+    # FIX: Convert dates to string format for display (YYYY-MM-DD)
+    daily_pnl_df_sorted['Date_Str'] = daily_pnl_df_sorted['Date'].dt.strftime('%Y-%m-%d')
     
     if len(daily_pnl_df_sorted) > 0:
         # Find highest and lowest capital values
         highest_capital = daily_pnl_df_sorted['Capital'].max()
         lowest_capital = daily_pnl_df_sorted['Capital'].min()
-        highest_capital_date = daily_pnl_df_sorted.loc[daily_pnl_df_sorted['Capital'].idxmax(), 'Date']
-        lowest_capital_date = daily_pnl_df_sorted.loc[daily_pnl_df_sorted['Capital'].idxmin(), 'Date']
+        highest_capital_idx = daily_pnl_df_sorted['Capital'].idxmax()
+        lowest_capital_idx = daily_pnl_df_sorted['Capital'].idxmin()
         
         # Create the chart
         fig = go.Figure()
         
         # Add Net PnL as colored bars (left Y-axis)
         # Create color array based on Net PnL values
-        colors = ['#10B981' if val >= 0 else '#EF4444' for val in daily_pnl_df_sorted['Net PnL']]
+        colors = ['#10B981' if val >= 0 else '#EF4444' for val in daily_pnl_df_sorted['Net P&L']]
         
+        # FIX: Use string dates for x-axis
         fig.add_trace(go.Bar(
-            x=daily_pnl_df_sorted['Date'],
-            y=daily_pnl_df_sorted['Net PnL'],
+            x=daily_pnl_df_sorted['Date_Str'],  # Use string dates
+            y=daily_pnl_df_sorted['Net P&L'],
             name='Daily Net P&L',
             marker_color=colors,
             opacity=0.8,
-            hovertemplate=f'<b>%{{x|%Y-%m-%d}}</b><br>Net P&L: {currency_symbol}%{{y:,.2f}}<extra></extra>',
+            hovertemplate=f'<b>%{{x}}</b><br>Net P&L: {currency_symbol}%{{y:,.2f}}<extra></extra>',
             yaxis='y'
         ))
         
         # Add Capital line on secondary Y-axis (right side)
         if 'Capital' in daily_pnl_df_sorted.columns and not daily_pnl_df_sorted['Capital'].isnull().all():
+            # FIX: Use string dates for x-axis
             fig.add_trace(go.Scatter(
-                x=daily_pnl_df_sorted['Date'],
+                x=daily_pnl_df_sorted['Date_Str'],  # Use string dates
                 y=daily_pnl_df_sorted['Capital'],
                 name='Capital',
                 mode='lines+markers',
                 line=dict(color='#FFA500', width=3),
                 marker=dict(size=6, color='#FFA500'),
-                hovertemplate=f'<b>%{{x|%Y-%m-%d}}</b><br>Capital: {currency_symbol}%{{y:,.2f}}<extra></extra>',
+                hovertemplate=f'<b>%{{x}}</b><br>Capital: {currency_symbol}%{{y:,.2f}}<extra></extra>',
                 yaxis='y2'
             ))
         
@@ -1069,51 +1070,55 @@ def create_daily_pnl_dashboard(daily_pnl_df, region="INDIA"):
         # ===================================================================
         
         # Mark highest capital point
-        fig.add_trace(go.Scatter(
-            x=[highest_capital_date],
-            y=[highest_capital],
-            mode='markers+text',
-            marker=dict(
-                size=14,
-                color='#FFA500',
-                symbol='triangle-up',
-                line=dict(width=2, color='white')
-            ),
-            text=[f"  High: {currency_symbol}{highest_capital:,.0f}"],
-            textposition="top center",
-            textfont=dict(size=11, color='#FFA500', family='Arial'),
-            hovertemplate=f'<b>Highest Capital: {currency_symbol}{highest_capital:,.2f}</b><br>Date: %{{x|%Y-%m-%d}}<extra></extra>',
-            showlegend=False,
-            name='Highest Capital',
-            yaxis='y2'
-        ))
+        if not pd.isna(highest_capital_idx):
+            highest_capital_date_str = daily_pnl_df_sorted.loc[highest_capital_idx, 'Date_Str']
+            fig.add_trace(go.Scatter(
+                x=[highest_capital_date_str],
+                y=[highest_capital],
+                mode='markers+text',
+                marker=dict(
+                    size=14,
+                    color='#FFA500',
+                    symbol='triangle-up',
+                    line=dict(width=2, color='white')
+                ),
+                text=[f"  High: {currency_symbol}{highest_capital:,.0f}"],
+                textposition="top center",
+                textfont=dict(size=11, color='#FFA500', family='Arial'),
+                hovertemplate=f'<b>Highest Capital: {currency_symbol}{highest_capital:,.2f}</b><br>Date: %{{x}}<extra></extra>',
+                showlegend=False,
+                name='Highest Capital',
+                yaxis='y2'
+            ))
         
         # Mark lowest capital point
-        fig.add_trace(go.Scatter(
-            x=[lowest_capital_date],
-            y=[lowest_capital],
-            mode='markers+text',
-            marker=dict(
-                size=14,
-                color='#FFA500',
-                symbol='triangle-down',
-                line=dict(width=2, color='white')
-            ),
-            text=[f"  Low: {currency_symbol}{lowest_capital:,.0f}"],
-            textposition="bottom center",
-            textfont=dict(size=11, color='#FFA500', family='Arial'),
-            hovertemplate=f'<b>Lowest Capital: {currency_symbol}{lowest_capital:,.2f}</b><br>Date: %{{x|%Y-%m-%d}}<extra></extra>',
-            showlegend=False,
-            name='Lowest Capital',
-            yaxis='y2'
-        ))
+        if not pd.isna(lowest_capital_idx):
+            lowest_capital_date_str = daily_pnl_df_sorted.loc[lowest_capital_idx, 'Date_Str']
+            fig.add_trace(go.Scatter(
+                x=[lowest_capital_date_str],
+                y=[lowest_capital],
+                mode='markers+text',
+                marker=dict(
+                    size=14,
+                    color='#FFA500',
+                    symbol='triangle-down',
+                    line=dict(width=2, color='white')
+                ),
+                text=[f"  Low: {currency_symbol}{lowest_capital:,.0f}"],
+                textposition="bottom center",
+                textfont=dict(size=11, color='#FFA500', family='Arial'),
+                hovertemplate=f'<b>Lowest Capital: {currency_symbol}{lowest_capital:,.2f}</b><br>Date: %{{x}}<extra></extra>',
+                showlegend=False,
+                name='Lowest Capital',
+                yaxis='y2'
+            ))
         
         # Mark current capital (latest point)
         latest_capital = daily_pnl_df_sorted['Capital'].iloc[-1]
-        latest_date = daily_pnl_df_sorted['Date'].iloc[-1]
+        latest_date_str = daily_pnl_df_sorted['Date_Str'].iloc[-1]
         
         fig.add_trace(go.Scatter(
-            x=[latest_date],
+            x=[latest_date_str],
             y=[latest_capital],
             mode='markers+text',
             marker=dict(
@@ -1125,7 +1130,7 @@ def create_daily_pnl_dashboard(daily_pnl_df, region="INDIA"):
             text=[f"  Current: {currency_symbol}{latest_capital:,.0f}"],
             textposition="top right",
             textfont=dict(size=11, color='#FFA500', family='Arial'),
-            hovertemplate=f'<b>Current Capital: {currency_symbol}{latest_capital:,.2f}</b><br>Date: %{{x|%Y-%m-%d}}<extra></extra>',
+            hovertemplate=f'<b>Current Capital: {currency_symbol}{latest_capital:,.2f}</b><br>Date: %{{x}}<extra></extra>',
             showlegend=False,
             name='Current Capital',
             yaxis='y2'
@@ -1138,7 +1143,7 @@ def create_daily_pnl_dashboard(daily_pnl_df, region="INDIA"):
             paper_bgcolor='white',
             font=dict(family="Inter, system-ui, sans-serif", size=12),
             hovermode='x unified',
-            margin=dict(l=60, r=60, t=40, b=40),
+            margin=dict(l=60, r=60, t=40, b=60),  # Increased bottom margin for rotated labels
             showlegend=True,
             legend=dict(
                 orientation="h",
@@ -1150,15 +1155,17 @@ def create_daily_pnl_dashboard(daily_pnl_df, region="INDIA"):
             bargap=0.2,
             xaxis=dict(
                 title="Date",
-                tickformat='%b %d',
+                type='category',  # Use category type for string dates
+                categoryorder='category ascending',
                 showgrid=False,
                 tickfont=dict(size=10, color='#64748B'),
                 linecolor='#E2E8F0',
                 showline=True,
-                # Show only dates that have data (no gaps for weekends/holidays)
-                type='category',
-                categoryorder='category ascending',
-                tickangle=45 if len(daily_pnl_df_sorted) > 5 else 0
+                tickangle=45 if len(daily_pnl_df_sorted) > 5 else 0,  # Rotate labels if many dates
+                # Show all dates without gaps
+                tickmode='array',
+                tickvals=daily_pnl_df_sorted['Date_Str'].tolist(),
+                ticktext=daily_pnl_df_sorted['Date_Str'].tolist()
             ),
             yaxis=dict(
                 title=f"Daily Net P&L ({currency_symbol})",

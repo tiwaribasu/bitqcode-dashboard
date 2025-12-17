@@ -693,7 +693,10 @@ def create_intraday_dashboard(data_dict, live_pnl_df, region="INDIA"):
         st.divider()
         st.subheader("📊 Closed Positions (Today)")
         
-        closed_display_df = closed_df[[
+        # Sort by P&L BEFORE any processing
+        closed_df_sorted = closed_df.sort_values(by='pnl', ascending=False)
+        
+        closed_display_df = closed_df_sorted[[
             'tradingsymbol', 'buy_quantity', 'buy_price',
             'sell_quantity', 'sell_price', 'pnl'
         ]].copy()
@@ -707,11 +710,9 @@ def create_intraday_dashboard(data_dict, live_pnl_df, region="INDIA"):
             'pnl': 'Realized P&L'
         })
         
-        # Format columns
+        # Format columns AFTER sorting
         for col in ['Buy Price', 'Sell Price', 'Realized P&L']:
             closed_display_df[col] = closed_display_df[col].apply(format_currency_func)
-        
-        closed_display_df = closed_display_df.sort_values(by='Realized P&L', ascending=False)
         
         table_html = create_html_table(
             closed_display_df,

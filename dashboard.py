@@ -30,7 +30,7 @@ st.set_page_config(
     layout="wide"
 )
 
-st._config.set_option('client.showErrorDetails', True)
+# st._config.set_option('client.showErrorDetails', True)
 
 
 # ===================================================================

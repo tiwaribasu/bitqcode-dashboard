@@ -5,6 +5,7 @@ import plotly.graph_objects as go
 import numpy as np
 from datetime import datetime, date
 import pytz
+from news_sentiment_module import NewsSentimentAnalyzer
 
 # ===================================================================
 # 🛠️ CONFIGURATION
@@ -17,6 +18,8 @@ CACHE_TTL = 10
 # ===================================================================
 try:
     GOOGLE_SHEET_CSV_URL = st.secrets["google_sheet"]["csv_url"]
+    NEWS_SHEET_URL = st.secrets.get("news_sheet", {}).get("url", "")
+
 except KeyError:
     st.error("🔐 Missing Google Sheet URL in Streamlit Secrets.")
     st.stop()
@@ -770,22 +773,23 @@ def create_refresh_button(key_suffix):
         st.rerun()
 
 # ===================================================================
-# 🎨 CSS for Bigger Tabs
+# 🎨 CSS for Bigger Tabs - UPDATED FOR 5 TABS
 # ===================================================================
 st.markdown("""
 <style>
     .stTabs [data-baseweb="tab-list"] {
-        gap: 2rem;
+        gap: 1.5rem;
         padding-top: 1rem;
     }
     
     .stTabs [data-baseweb="tab"] {
-        height: 50px;
-        font-size: 18px;
+        height: 45px;
+        font-size: 16px;
         font-weight: 600;
-        padding: 10px 24px;
-        border-radius: 8px 8px 0 0;
+        padding: 8px 20px;
+        border-radius: 6px 6px 0 0;
         background-color: #f0f2f6;
+        white-space: nowrap;
     }
     
     .stTabs [aria-selected="true"] {
@@ -795,6 +799,7 @@ st.markdown("""
     
     .stTabs [data-baseweb="tab-list"] {
         border-bottom: 1px solid #e0e0e0;
+        flex-wrap: wrap;
     }
     
     .stTabs [data-baseweb="tab-panel"] {
@@ -804,11 +809,42 @@ st.markdown("""
     .main .block-container {
         padding-top: 1rem;
     }
+    
+    /* News terminal styling */
+    .news-terminal {
+        font-family: 'Courier New', monospace;
+        background-color: #000000;
+        color: #00FF00;
+        padding: 20px;
+        border-radius: 8px;
+        border: 1px solid #00FF00;
+        max-height: 600px;
+        overflow-y: auto;
+        line-height: 1.6;
+    }
+    
+    .news-item {
+        margin-bottom: 15px;
+        border-left: 3px solid;
+        padding-left: 10px;
+    }
+    
+    .news-timestamp {
+        color: #888888;
+        font-size: 12px;
+        margin-bottom: 4px;
+    }
+    
+    .news-content {
+        color: #FFFFFF;
+        font-size: 14px;
+        line-height: 1.4;
+    }
 </style>
 """, unsafe_allow_html=True)
 
 # ===================================================================
-# 📥 Load Data
+# 📥 Load Data (Keep all your existing data loading)
 # ===================================================================
 df_india_raw = load_sheet_data(sheet_gid="649765105")
 df_india_live_pnl_raw = load_sheet_data(sheet_gid="1065660372")
@@ -830,13 +866,15 @@ global_live_pnl_data = process_live_pnl_data(df_global_live_pnl_raw)
 global_daily_pnl_data = process_daily_pnl_data(df_global_daily_pnl_raw, region="GLOBAL")
 
 # ===================================================================
-# 📊 Create Tabs
+# 📊 Create Tabs - UPDATED WITH NEWS TAB
 # ===================================================================
-tab1, tab2, tab3, tab4 = st.tabs([
+# Create 5 tabs including the new News tab
+tab1, tab2, tab3, tab4, tab5 = st.tabs([
     "🌍 **GLOBAL (INTRA)**", 
     "📊 **GLOBAL (DAILY)**",
     "🇮🇳 **INDIA (INTRA)**",
-    "📊 **INDIA (DAILY)**"
+    "📊 **INDIA (DAILY)**",
+    "📰 **NEWS & SENTIMENT**"  # New tab
 ])
 
 with tab1:
@@ -867,3 +905,19 @@ with tab4:
         create_refresh_button("india_daily")
     
     create_daily_pnl_dashboard(india_daily_pnl_data, region="INDIA")
+
+with tab5:
+    # NEWS & SENTIMENT TAB
+    col1, col2 = st.columns([5, 1])
+    with col2:
+        create_refresh_button("news_sentiment")
+    
+    # Check if news sheet URL is configured
+    if not NEWS_SHEET_URL:
+        st.warning("""
+        ⚠️ News not Updated.
+        """)
+    else:
+        # Initialize and display news sentiment dashboard
+        analyzer = NewsSentimentAnalyzer(google_sheet_url=NEWS_SHEET_URL)
+        analyzer.display_dashboard()

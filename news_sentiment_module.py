@@ -406,8 +406,11 @@ class NewsSentimentAnalyzer:
             
             # Create Bloomberg-like terminal display
             if self.df is not None and not self.df.empty:
-                # Add CSS for terminal styling
-                st.markdown("""
+                # Create complete HTML string first
+                html_parts = []
+                
+                # Add CSS
+                html_parts.append("""
                 <style>
                 .news-terminal {
                     font-family: 'Courier New', Monaco, monospace;
@@ -436,12 +439,12 @@ class NewsSentimentAnalyzer:
                     line-height: 1.4;
                 }
                 </style>
-                """, unsafe_allow_html=True)
+                """)
                 
-                # Create terminal container
-                terminal_html = '''<div class="news-terminal">'''
+                # Start terminal container
+                html_parts.append('<div class="news-terminal">')
                 
-                # Display each news item
+                # Add news items
                 for idx, row in self.df.iterrows():
                     if idx >= 50:  # Limit to 50 most recent news items
                         break
@@ -459,21 +462,26 @@ class NewsSentimentAnalyzer:
                     sentiment_color = news_sentiment['color']
                     sentiment_indicator = news_sentiment['indicator']
                     
-                    terminal_html += f'''
+                    # Escape any HTML in the news text
+                    escaped_news = news_text.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+                    
+                    html_parts.append(f'''
                     <div class="news-item" style="border-left-color: {sentiment_color};">
                         <div class="news-timestamp">
                             [{timestamp}] <span style="color: {sentiment_color}; font-weight: bold;">{sentiment_indicator}</span>
                         </div>
                         <div class="news-content">
-                            {news_text}
+                            {escaped_news}
                         </div>
                     </div>
-                    '''
+                    ''')
                 
-                terminal_html += "</div>"
+                # Close terminal container
+                html_parts.append('</div>')
                 
-                # Display the terminal
-                st.markdown(terminal_html, unsafe_allow_html=True)
+                # Join all parts and render ONCE
+                complete_html = '\n'.join(html_parts)
+                st.markdown(complete_html, unsafe_allow_html=True)
                 
                 # News statistics
                 st.markdown("---")

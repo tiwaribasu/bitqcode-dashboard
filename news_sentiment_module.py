@@ -402,18 +402,6 @@ class NewsSentimentAnalyzer:
             # News feed section
             st.subheader("📰 Live News Feed")
             
-            # Add CSS to ensure proper colors
-            st.markdown("""
-            <style>
-            .news-terminal * {
-                color: #00FF00 !important;
-            }
-            .news-terminal {
-                background-color: #000000 !important;
-            }
-            </style>
-            """, unsafe_allow_html=True)
-            
             # Create Bloomberg-like terminal display
             if self.df is not None and not self.df.empty:
                 # Build the complete HTML
@@ -439,11 +427,11 @@ class NewsSentimentAnalyzer:
                     
                     # Create HTML for this item
                     html_content += f"""
-                    <div style="margin-bottom: 15px; border-left: 3px solid {sentiment_color}; padding-left: 10px;">
+                    <div style="margin-bottom: 15px; border-left: 3px solid {sentiment_color}; padding-left: 10px; font-family: 'Courier New', monospace;">
                         <div style="color: #888888; font-size: 12px; margin-bottom: 4px;">
                             [{timestamp}] <span style="color: {sentiment_color}; font-weight: bold;">{sentiment_indicator}</span>
                         </div>
-                        <div style="color: #00FF00 !important; font-size: 14px; line-height: 1.4;">
+                        <div style="color: #FFFFFF; font-size: 14px; line-height: 1.4;">
                             {news_text}
                         </div>
                     </div>
@@ -451,22 +439,13 @@ class NewsSentimentAnalyzer:
                 
                 # Wrap in terminal container
                 terminal_html = f"""
-                <div class="news-terminal" style="
-                    background-color: #000000; 
-                    color: #00FF00; 
-                    padding: 20px; 
-                    border-radius: 8px; 
-                    border: 1px solid #00FF00; 
-                    max-height: 600px; 
-                    overflow-y: auto; 
-                    font-family: 'Courier New', monospace;
-                ">
+                <div style="background-color: #000000; color: #00FF00; padding: 20px; border-radius: 8px; border: 1px solid #00FF00; max-height: 600px; overflow-y: auto; font-family: 'Courier New', monospace;">
                     {html_content}
                 </div>
                 """
                 
-                # Display using st.markdown
-                st.markdown(terminal_html, unsafe_allow_html=True)
+                # Display using st.write with HTML
+                st.write(terminal_html, unsafe_allow_html=True)
                 
                 # News statistics
                 st.markdown("---")

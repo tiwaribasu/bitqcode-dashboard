@@ -401,50 +401,43 @@ class NewsSentimentAnalyzer:
             # News feed section
             st.subheader("📰 Live News Feed")
             
-            # Create Bloomberg-like terminal display without black background
+            # Create clean news display
             if self.df is not None and not self.df.empty:
                 # Limit to 10 latest items
                 display_df = self.df.head(10)
                 
-                # Display each news item with colored text
-                for idx, row in display_df.iterrows():
-                    timestamp = row['DateTime_ET'].strftime("%H:%M:%S") if 'DateTime_ET' in row else "N/A"
-                    news_text = row['Cleaned_News']
-                    
-                    if not news_text or str(news_text).strip() == "":
-                        continue
-                    
-                    # Analyze sentiment
-                    news_sentiment = self.analyze_sentiment(news_text)
-                    
-                    # Get color and indicator based on sentiment
-                    if news_sentiment['sentiment'] == "Positive":
-                        text_color = "#10B981"  # Green
-                        indicator = "▲"
-                        sentiment_label = " (Bullish)"
-                    elif news_sentiment['sentiment'] == "Negative":
-                        text_color = "#EF4444"  # Red
-                        indicator = "▼"
-                        sentiment_label = " (Bearish)"
-                    else:
-                        text_color = "#F59E0B"  # Yellow/Amber
-                        indicator = "●"
-                        sentiment_label = " (Neutral)"
-                    
-                    # Display timestamp with indicator
-                    col1, col2 = st.columns([3, 10])
-                    with col1:
-                        st.markdown(f"**[{timestamp}] {indicator}**")
-                    with col2:
-                        # Display news with colored text
-                        st.markdown(f'<span style="color: {text_color}">{news_text}{sentiment_label}</span>', 
-                                   unsafe_allow_html=True)
-                    
-                    # Add a small divider between items (optional)
-                    if idx < len(display_df) - 1:
-                        st.markdown("---")
+                # Create a container for news
+                news_container = st.container()
                 
-                # News statistics
+                with news_container:
+                    for idx, row in display_df.iterrows():
+                        timestamp = row['DateTime_ET'].strftime("%H:%M:%S") if 'DateTime_ET' in row else "N/A"
+                        news_text = row['Cleaned_News']
+                        
+                        if not news_text or str(news_text).strip() == "":
+                            continue
+                        
+                        # Analyze sentiment
+                        news_sentiment = self.analyze_sentiment(news_text)
+                        
+                        # Get color and indicator
+                        if news_sentiment['sentiment'] == "Positive":
+                            text_color = "#10B981"  # Green
+                            indicator = "▲"
+                        elif news_sentiment['sentiment'] == "Negative":
+                            text_color = "#EF4444"  # Red
+                            indicator = "▼"
+                        else:
+                            text_color = "#F59E0B"  # Yellow/Amber
+                            indicator = "●"
+                        
+                        # Display the news item
+                        st.markdown(
+                            f"**[{timestamp}] {indicator}** <span style='color: {text_color}'>{news_text}</span>",
+                            unsafe_allow_html=True
+                        )
+                
+                # News statistics below the news items
                 st.markdown("---")
                 col_a, col_b, col_c = st.columns(3)
                 with col_a:

@@ -213,14 +213,13 @@ class NewsSentimentAnalyzer:
     
     def display_dashboard(self):
         """Display the complete news sentiment dashboard"""
-        st.title("📰 NEWS & SENTIMENT DASHBOARD")
+        # st.title("📰 NEWS & SENTIMENT DASHBOARD")
         
         # Load data
         with st.spinner("📥 Loading news data..."):
             if self.load_news_data():
-                if self.df is not None and not self.df.empty:
-                    st.success(f"✓ Loaded {len(self.df)} news items for today")
-                else:
+                if self.df is None and self.df.empty:
+                   
                     st.info("📭 No news available for today.")
                     return
             else:

@@ -404,11 +404,8 @@ class NewsSentimentAnalyzer:
             
             # Create Bloomberg-like terminal display
             if self.df is not None and not self.df.empty:
-                # Create complete HTML string first
-                html_parts = []
-                
-                # Add CSS
-                html_parts.append("""
+                # Create complete HTML string
+                html_content = """
                 <style>
                 .news-terminal {
                     font-family: 'Courier New', Monaco, monospace;
@@ -437,10 +434,8 @@ class NewsSentimentAnalyzer:
                     line-height: 1.4;
                 }
                 </style>
-                """)
-                
-                # Start terminal container
-                html_parts.append('<div class="news-terminal">')
+                <div class="news-terminal">
+                """
                 
                 # Add news items
                 for idx, row in self.df.iterrows():
@@ -453,17 +448,18 @@ class NewsSentimentAnalyzer:
                     if not news_text or str(news_text).strip() == "":
                         continue
                     
-                    # Analyze sentiment for this specific news
+                    # Analyze sentiment
                     news_sentiment = self.analyze_sentiment(news_text)
                     
                     # Get color and indicator
                     sentiment_color = news_sentiment['color']
                     sentiment_indicator = news_sentiment['indicator']
                     
-                    # Escape any HTML in the news text
+                    # Escape HTML
                     escaped_news = news_text.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
                     
-                    html_parts.append(f'''
+                    # Add to HTML
+                    html_content += f"""
                     <div class="news-item" style="border-left-color: {sentiment_color};">
                         <div class="news-timestamp">
                             [{timestamp}] <span style="color: {sentiment_color}; font-weight: bold;">{sentiment_indicator}</span>
@@ -472,14 +468,13 @@ class NewsSentimentAnalyzer:
                             {escaped_news}
                         </div>
                     </div>
-                    ''')
+                    """
                 
-                # Close terminal container
-                html_parts.append('</div>')
+                # Close container
+                html_content += "</div>"
                 
-                # Join all parts and render ONCE
-                complete_html = '\n'.join(html_parts)
-                st.markdown(complete_html, unsafe_allow_html=True)
+                # Render ONCE
+                st.markdown(html_content, unsafe_allow_html=True)
                 
                 # News statistics
                 st.markdown("---")

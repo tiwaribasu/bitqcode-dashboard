@@ -403,81 +403,76 @@ class NewsSentimentAnalyzer:
             
             # Create Bloomberg-like terminal display
             if self.df is not None and not self.df.empty:
-                # Add custom CSS for terminal styling
+                # Create a container with custom CSS
                 st.markdown("""
                 <style>
-                div.terminal-container {
-                    font-family: 'Courier New', Monaco, monospace;
-                    background-color: #000000;
-                    color: #00FF00;
-                    padding: 20px;
-                    border-radius: 8px;
-                    border: 1px solid #00FF00;
-                    max-height: 600px;
-                    overflow-y: auto;
-                    line-height: 1.6;
+                .terminal-box {
+                    background-color: #000000 !important;
+                    color: #00FF00 !important;
+                    font-family: 'Courier New', Monaco, monospace !important;
+                    padding: 20px !important;
+                    border-radius: 8px !important;
+                    border: 1px solid #00FF00 !important;
+                    max-height: 600px !important;
+                    overflow-y: auto !important;
+                    line-height: 1.6 !important;
                 }
-                div.news-entry {
-                    margin-bottom: 15px;
-                    padding-left: 10px;
+                .news-line {
+                    margin-bottom: 15px !important;
+                    padding-left: 10px !important;
+                    border-left: 3px solid;
                 }
-                .timestamp {
-                    color: #888888;
-                    font-size: 12px;
-                    margin-bottom: 4px;
+                .time-stamp {
+                    color: #888888 !important;
+                    font-size: 12px !important;
+                    margin-bottom: 4px !important;
                 }
-                .news-text {
-                    color: #FFFFFF;
-                    font-size: 14px;
-                    line-height: 1.4;
+                .news-content {
+                    color: #00FF00 !important;
+                    font-size: 14px !important;
+                    line-height: 1.4 !important;
                 }
                 </style>
                 """, unsafe_allow_html=True)
                 
-                # Create a container for the terminal
-                with st.container():
-                    # Start the terminal container
-                    st.markdown('<div class="terminal-container">', unsafe_allow_html=True)
+                # Start the terminal box
+                st.markdown('<div class="terminal-box">', unsafe_allow_html=True)
+                
+                # Display each news item
+                for idx, row in self.df.iterrows():
+                    if idx >= 50:  # Limit to 50 most recent news items
+                        break
                     
-                    # Display each news item using Streamlit components
-                    for idx, row in self.df.iterrows():
-                        if idx >= 50:  # Limit to 50 most recent news items
-                            break
-                        
-                        timestamp = row['DateTime_ET'].strftime("%H:%M:%S") if 'DateTime_ET' in row else "N/A"
-                        news_text = row['Cleaned_News']
-                        
-                        if not news_text or str(news_text).strip() == "":
-                            continue
-                        
-                        # Analyze sentiment
-                        news_sentiment = self.analyze_sentiment(news_text)
-                        
-                        # Get color and indicator
-                        sentiment_color = news_sentiment['color']
-                        sentiment_indicator = news_sentiment['indicator']
-                        
-                        # Create columns for layout
-                        col_left, col_right = st.columns([1, 20])
-                        
-                        with col_left:
-                            # Create timestamp with sentiment indicator
-                            st.markdown(
-                                f"<div class='timestamp' style='border-left: 3px solid {sentiment_color}; padding-left: 5px;'>"
-                                f"[{timestamp}] <span style='color: {sentiment_color}; font-weight: bold;'>{sentiment_indicator}</span>"
-                                f"</div>",
-                                unsafe_allow_html=True
-                            )
-                        
-                        with col_right:
-                            # Display news text
-                            st.markdown(
-                                f"<div class='news-text'>{news_text}</div>",
-                                unsafe_allow_html=True
-                            )
+                    timestamp = row['DateTime_ET'].strftime("%H:%M:%S") if 'DateTime_ET' in row else "N/A"
+                    news_text = row['Cleaned_News']
                     
-                    # Close the terminal container
-                    st.markdown('</div>', unsafe_allow_html=True)
+                    if not news_text or str(news_text).strip() == "":
+                        continue
+                    
+                    # Analyze sentiment
+                    news_sentiment = self.analyze_sentiment(news_text)
+                    
+                    # Get color and indicator
+                    sentiment_color = news_sentiment['color']
+                    sentiment_indicator = news_sentiment['indicator']
+                    
+                    # Create the HTML for this line
+                    line_html = f'''
+                    <div class="news-line" style="border-left-color: {sentiment_color} !important;">
+                        <div class="time-stamp">
+                            [{timestamp}] <span style="color: {sentiment_color} !important; font-weight: bold !important;">{sentiment_indicator}</span>
+                        </div>
+                        <div class="news-content">
+                            {news_text}
+                        </div>
+                    </div>
+                    '''
+                    
+                    # Display this line
+                    st.markdown(line_html, unsafe_allow_html=True)
+                
+                # Close the terminal box
+                st.markdown('</div>', unsafe_allow_html=True)
                 
                 # News statistics
                 st.markdown("---")

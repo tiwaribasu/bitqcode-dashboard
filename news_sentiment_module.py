@@ -20,21 +20,6 @@ class NewsSentimentAnalyzer:
         self.google_sheet_url = google_sheet_url
         self.df = None
         
-        # Financial/Market keywords for better sentiment analysis
-        self.positive_keywords = [
-            'beat', 'surge', 'jump', 'rise', 'gain', 'rally', 'bull', 'positive',
-            'growth', 'profit', 'increase', 'higher', 'record', 'win', 'success',
-            'strong', 'optimistic', 'boom', 'breakthrough', 'dividend', 'buyback',
-            'upgrade', 'outperform', 'bullish', 'recovery', 'soar'
-        ]
-        
-        self.negative_keywords = [
-            'cut', 'plunge', 'drop', 'fall', 'loss', 'crash', 'bear', 'negative',
-            'decline', 'decrease', 'lower', 'miss', 'fail', 'weak', 'pessimistic',
-            'slump', 'downgrade', 'underperform', 'bearish', 'recession', 'warn',
-            'risk', 'volatility', 'uncertainty', 'selloff', 'downturn', 'bankrupt'
-        ]
-    
     def clean_text(self, text):
         """Remove emojis, special characters, and clean text for NLP"""
         if pd.isna(text):
@@ -93,61 +78,40 @@ class NewsSentimentAnalyzer:
             return dt_et
             
         except Exception as e:
-            # Try to extract date from string
-            try:
-                # Look for patterns like "December 18, 2025"
-                date_pattern = r'([A-Za-z]+ \d{1,2}, \d{4})'
-                match = re.search(date_pattern, datetime_str)
-                if match:
-                    date_str = match.group(1)
-                    dt = datetime.strptime(date_str, "%B %d, %Y")
-                    et_offset = timedelta(hours=-5)
-                    return dt + et_offset
-            except:
-                pass
-            
-            # Return current time if parsing fails
+            st.warning(f"Could not parse datetime: {datetime_str} - Error: {str(e)}")
             return datetime.now(timezone.utc)
     
     def load_news_data(self):
         """Load news data from Google Sheet"""
         try:
             if self.google_sheet_url:
-                # For public Google Sheets
+                # Convert Google Sheet URL to CSV export URL
                 if '/edit#' in self.google_sheet_url:
-                    # Extract sheet ID
+                    # Extract gid if present
                     if 'gid=' in self.google_sheet_url:
-                        sheet_id = self.google_sheet_url.split('gid=')[1]
+                        gid = self.google_sheet_url.split('gid=')[1]
                         csv_url = self.google_sheet_url.replace('/edit#gid=', f'/export?format=csv&gid=')
                     else:
                         csv_url = self.google_sheet_url.replace('/edit#', '/export?format=csv&gid=0')
                 else:
-                    # Assume it's already a CSV export URL
                     csv_url = self.google_sheet_url
                 
                 # Make sure it's a CSV export URL
                 if 'export?format=csv' not in csv_url:
-                    csv_url = f"{self.google_sheet_url.split('?')[0]}/export?format=csv"
+                    if 'gid=' in csv_url:
+                        csv_url = csv_url.replace('/edit?', '/export?format=csv&')
+                    else:
+                        csv_url = f"{csv_url}/export?format=csv"
                 
                 self.df = pd.read_csv(csv_url)
                 
                 if self.df is not None and not self.df.empty:
-                    st.info(f"Loaded {len(self.df)} raw news items")
-                    
                     # Clean column names
                     self.df.columns = [col.strip() for col in self.df.columns]
-                    
-                    # Debug: Show columns
-                    st.info(f"Columns found: {list(self.df.columns)}")
                     
                     # Clean news text
                     if 'News' in self.df.columns:
                         self.df['Cleaned_News'] = self.df['News'].apply(self.clean_text)
-                        # Remove empty news
-                        self.df = self.df[self.df['Cleaned_News'].str.strip() != '']
-                    else:
-                        st.error("❌ 'News' column not found in the sheet")
-                        return False
                     
                     # Parse datetime
                     if 'DateTime' in self.df.columns:
@@ -156,20 +120,7 @@ class NewsSentimentAnalyzer:
                         # Filter for today's news only
                         today = datetime.now(timezone.utc).date()
                         self.df['Date'] = pd.to_datetime(self.df['DateTime_ET']).dt.date
-                        
-                        # Show date distribution
-                        date_counts = self.df['Date'].value_counts().head()
-                        st.info(f"Date distribution: {dict(date_counts)}")
-                        
-                        # Filter for today or recent news if no today's news
-                        if today in self.df['Date'].unique():
-                            self.df = self.df[self.df['Date'] == today]
-                            st.success(f"✓ Filtered for today's news: {len(self.df)} items")
-                        else:
-                            # Show most recent date's news
-                            most_recent_date = self.df['Date'].max()
-                            self.df = self.df[self.df['Date'] == most_recent_date]
-                            st.info(f"📅 Showing most recent news from {most_recent_date}: {len(self.df)} items")
+                        self.df = self.df[self.df['Date'] == today]
                         
                         # Sort by datetime (newest first)
                         self.df = self.df.sort_values('DateTime_ET', ascending=False)
@@ -181,104 +132,62 @@ class NewsSentimentAnalyzer:
             st.error(f"Error loading news data: {str(e)}")
             return False
     
-    def enhanced_sentiment_analysis(self, text):
-        """Enhanced sentiment analysis with financial context"""
+    def analyze_sentiment(self, text):
+        """Analyze sentiment using TextBlob"""
         if not text or pd.isna(text):
-            return {'score': 50, 'sentiment': 'Neutral', 'color': '#F59E0B', 'polarity': 0}
+            return {'score': 50, 'sentiment': 'Neutral', 'color': 'yellow', 'polarity': 0}
         
-        text_lower = text.lower()
-        
-        # Base sentiment from TextBlob
         analysis = TextBlob(str(text))
+        # Get polarity score between -1 and 1
         polarity = analysis.sentiment.polarity
-        
-        # Adjust based on financial keywords
-        keyword_score = 0
-        positive_count = sum(1 for keyword in self.positive_keywords if keyword in text_lower)
-        negative_count = sum(1 for keyword in self.negative_keywords if keyword in text_lower)
-        
-        # Adjust polarity based on keywords
-        if positive_count > negative_count:
-            polarity = min(polarity + 0.3, 1.0)  # Boost positive sentiment
-        elif negative_count > positive_count:
-            polarity = max(polarity - 0.3, -1.0)  # Boost negative sentiment
         
         # Convert to score between 0 and 100
         score = (polarity + 1) * 50
         
-        # Adjust thresholds for better distribution
-        if score > 65:  # More sensitive positive threshold
+        # Categorize sentiment
+        if score > 60:
             sentiment = "Positive"
             color = "#10B981"  # Green
-            indicator = "▲"
-        elif score < 35:  # More sensitive negative threshold
+        elif score < 40:
             sentiment = "Negative"
             color = "#EF4444"  # Red
-            indicator = "▼"
         else:
             sentiment = "Neutral"
             color = "#F59E0B"  # Yellow/Amber
-            indicator = "●"
         
         return {
-            'score': min(max(score, 0), 100),
+            'score': min(max(score, 0), 100),  # Ensure between 0-100
             'sentiment': sentiment,
             'color': color,
-            'indicator': indicator,
-            'polarity': polarity,
-            'positive_keywords': positive_count,
-            'negative_keywords': negative_count
+            'polarity': polarity
         }
     
     def create_speedometer(self, sentiment_score, sentiment_label, color):
         """Create a speedometer/gauge chart for sentiment"""
-        # Define color zones
-        if sentiment_label == "Positive":
-            gauge_color = "#10B981"
-        elif sentiment_label == "Negative":
-            gauge_color = "#EF4444"
-        else:
-            gauge_color = "#F59E0B"
-        
         fig = go.Figure(go.Indicator(
             mode="gauge+number",
             value=sentiment_score,
             domain={'x': [0, 1], 'y': [0, 1]},
-            title={'text': f"Market Sentiment", 'font': {'size': 24, 'color': '#1E293B'}},
-            number={'font': {'size': 48, 'color': gauge_color}, 'suffix': "%"},
+            title={'text': f"Market Sentiment: {sentiment_label}", 'font': {'size': 20, 'color': '#1E293B'}},
+            number={'font': {'size': 48, 'color': color}, 'suffix': "%"},
             gauge={
-                'axis': {'range': [0, 100], 'tickwidth': 1, 'tickcolor': "#1E293B", 
-                        'tickfont': {'size': 12, 'color': '#64748B'}, 'tickmode': 'array',
-                        'tickvals': [0, 25, 50, 75, 100], 'ticktext': ['Very Bearish', 'Bearish', 'Neutral', 'Bullish', 'Very Bullish']},
-                'bar': {'color': gauge_color, 'thickness': 0.8},
+                'axis': {'range': [0, 100], 'tickwidth': 1, 'tickcolor': "#1E293B", 'tickfont': {'size': 12}},
+                'bar': {'color': color, 'thickness': 0.8},
                 'bgcolor': "white",
                 'borderwidth': 2,
                 'bordercolor': "#CBD5E1",
                 'steps': [
-                    {'range': [0, 30], 'color': 'rgba(239, 68, 68, 0.1)'},
-                    {'range': [30, 45], 'color': 'rgba(245, 158, 11, 0.1)'},
-                    {'range': [45, 55], 'color': 'rgba(251, 191, 36, 0.1)'},
-                    {'range': [55, 70], 'color': 'rgba(245, 158, 11, 0.1)'},
-                    {'range': [70, 100], 'color': 'rgba(16, 185, 129, 0.1)'}
+                    {'range': [0, 30], 'color': 'rgba(239, 68, 68, 0.2)'},
+                    {'range': [30, 70], 'color': 'rgba(245, 158, 11, 0.2)'},
+                    {'range': [70, 100], 'color': 'rgba(16, 185, 129, 0.2)'}
                 ],
                 'threshold': {
-                    'line': {'color': gauge_color, 'width': 4},
+                    'line': {'color': color, 'width': 4},
                     'thickness': 0.8,
                     'value': sentiment_score
                 }
             }
         ))
-        
-        # Add sentiment label
-        fig.add_annotation(
-            x=0.5,
-            y=0.2,
-            text=f"<b>{sentiment_label}</b>",
-            showarrow=False,
-            font=dict(size=20, color=gauge_color),
-            xref="paper",
-            yref="paper"
-        )
         
         fig.update_layout(
             height=400,
@@ -293,57 +202,24 @@ class NewsSentimentAnalyzer:
     def calculate_overall_sentiment(self):
         """Calculate overall sentiment from all news"""
         if self.df is None or self.df.empty or 'Cleaned_News' not in self.df.columns:
-            return {'score': 50, 'sentiment': 'Neutral', 'color': '#F59E0B', 'indicator': '●'}
+            return {'score': 50, 'sentiment': 'Neutral', 'color': '#F59E0B'}
         
-        # Calculate weighted sentiment (recent news more important)
-        if len(self.df) > 0:
-            sentiments = []
-            weights = []
-            
-            for i, (idx, row) in enumerate(self.df.iterrows()):
-                if pd.notna(row['Cleaned_News']) and str(row['Cleaned_News']).strip():
-                    sentiment = self.enhanced_sentiment_analysis(row['Cleaned_News'])
-                    # Weight: recent news gets higher weight
-                    weight = 1.0 / (i + 1)  # Linear decay
-                    sentiments.append(sentiment['score'])
-                    weights.append(weight)
-            
-            if sentiments:
-                weighted_avg = np.average(sentiments, weights=weights)
-                
-                if weighted_avg > 65:
-                    sentiment_label = "Positive"
-                    color = "#10B981"
-                elif weighted_avg < 35:
-                    sentiment_label = "Negative"
-                    color = "#EF4444"
-                else:
-                    sentiment_label = "Neutral"
-                    color = "#F59E0B"
-                
-                return {
-                    'score': weighted_avg,
-                    'sentiment': sentiment_label,
-                    'color': color,
-                    'indicator': '▲' if sentiment_label == "Positive" else '▼' if sentiment_label == "Negative" else '●'
-                }
+        # Use all cleaned news for overall sentiment
+        all_news = " ".join(self.df['Cleaned_News'].dropna().tolist())
+        if not all_news.strip():
+            return {'score': 50, 'sentiment': 'Neutral', 'color': '#F59E0B'}
         
-        return {'score': 50, 'sentiment': 'Neutral', 'color': '#F59E0B', 'indicator': '●'}
+        return self.analyze_sentiment(all_news)
     
     def display_dashboard(self):
         """Display the complete news sentiment dashboard"""
         st.title("📰 NEWS & SENTIMENT DASHBOARD")
         
-        # Add refresh button
-        if st.button("🔄 Refresh News", type="secondary"):
-            st.cache_data.clear()
-            st.rerun()
-        
         # Load data
         with st.spinner("📥 Loading news data..."):
             if self.load_news_data():
                 if self.df is not None and not self.df.empty:
-                    st.success(f"✓ Loaded {len(self.df)} news items")
+                    st.success(f"✓ Loaded {len(self.df)} news items for today")
                 else:
                     st.info("📭 No news available for today.")
                     return
@@ -378,35 +254,33 @@ class NewsSentimentAnalyzer:
                 sentiments = []
                 for news in self.df['Cleaned_News']:
                     if pd.notna(news) and str(news).strip():
-                        sentiment = self.enhanced_sentiment_analysis(news)
+                        sentiment = self.analyze_sentiment(news)
                         sentiments.append(sentiment['sentiment'])
                 
                 if sentiments:
                     sentiment_counts = pd.Series(sentiments).value_counts()
                     
                     # Display sentiment counts with colors
-                    sentiment_data = []
-                    for sentiment_type, color, icon in [
-                        ('Positive', '#10B981', '🟢'),
-                        ('Neutral', '#F59E0B', '🟡'),
-                        ('Negative', '#EF4444', '🔴')
-                    ]:
+                    for sentiment_type in ['Positive', 'Neutral', 'Negative']:
                         count = sentiment_counts.get(sentiment_type, 0)
-                        percentage = (count / len(sentiments)) * 100 if len(sentiments) > 0 else 0
+                        if sentiment_type == "Positive":
+                            icon = "🟢"
+                            color = "#10B981"
+                        elif sentiment_type == "Negative":
+                            icon = "🔴"
+                            color = "#EF4444"
+                        else:
+                            icon = "🟡"
+                            color = "#F59E0B"
                         
                         st.markdown(f"""
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; padding: 8px; background-color: rgba(255,255,255,0.05); border-radius: 6px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
                             <span style="font-size: 16px; color: #1E293B;">
                                 {icon} <strong>{sentiment_type}</strong>
                             </span>
-                            <div style="text-align: right;">
-                                <div style="font-size: 18px; font-weight: bold; color: {color};">
-                                    {count}
-                                </div>
-                                <div style="font-size: 12px; color: #64748B;">
-                                    {percentage:.1f}%
-                                </div>
-                            </div>
+                            <span style="font-size: 16px; font-weight: bold; color: {color};">
+                                {count}
+                            </span>
                         </div>
                         """, unsafe_allow_html=True)
                 
@@ -426,12 +300,12 @@ class NewsSentimentAnalyzer:
             
             # Create Bloomberg-like terminal display
             if self.df is not None and not self.df.empty:
-                # Create container for news feed
+                # Container for news feed
                 news_container = st.container()
                 
                 with news_container:
                     # Create HTML for terminal-like display
-                    terminal_html = """
+                    html_content = """
                     <div style="
                         font-family: 'Courier New', Monaco, monospace;
                         background-color: #000000;
@@ -445,25 +319,31 @@ class NewsSentimentAnalyzer:
                     ">
                     """
                     
-                    # Display each news item
                     for idx, row in self.df.iterrows():
                         if idx >= 50:  # Limit to 50 most recent news items
                             break
-                        
-                        timestamp = row['DateTime_ET'].strftime("%H:%M:%S") if 'DateTime_ET' in row else "N/A"
+                            
+                        timestamp = row['DateTime_ET'].strftime("%H:%M:%S")
                         news_text = row['Cleaned_News']
                         
                         if not news_text or str(news_text).strip() == "":
                             continue
                         
                         # Analyze sentiment for this specific news
-                        news_sentiment = self.enhanced_sentiment_analysis(news_text)
+                        news_sentiment = self.analyze_sentiment(news_text)
                         
-                        # Get color and indicator
-                        sentiment_color = news_sentiment['color']
-                        sentiment_indicator = news_sentiment['indicator']
+                        # Color code based on sentiment
+                        if news_sentiment['sentiment'] == "Positive":
+                            sentiment_color = "#00FF00"  # Green
+                            sentiment_indicator = "▲"
+                        elif news_sentiment['sentiment'] == "Negative":
+                            sentiment_color = "#FF0000"  # Red
+                            sentiment_indicator = "▼"
+                        else:
+                            sentiment_color = "#FFFF00"  # Yellow
+                            sentiment_indicator = "●"
                         
-                        terminal_html += f"""
+                        html_content += f"""
                         <div style="margin-bottom: 15px; border-left: 3px solid {sentiment_color}; padding-left: 10px;">
                             <div style="color: #888888; font-size: 12px; margin-bottom: 4px;">
                                 [{timestamp}] <span style="color: {sentiment_color}; font-weight: bold;">{sentiment_indicator}</span>
@@ -474,9 +354,9 @@ class NewsSentimentAnalyzer:
                         </div>
                         """
                     
-                    terminal_html += "</div>"
+                    html_content += "</div>"
                     
-                    st.markdown(terminal_html, unsafe_allow_html=True)
+                    st.markdown(html_content, unsafe_allow_html=True)
                     
                     # News statistics
                     st.markdown("---")
@@ -484,7 +364,7 @@ class NewsSentimentAnalyzer:
                     with col_a:
                         st.metric("📊 Total News", len(self.df))
                     with col_b:
-                        if not self.df.empty and 'DateTime_ET' in self.df.columns:
+                        if not self.df.empty:
                             latest_time = self.df['DateTime_ET'].iloc[0].strftime("%H:%M ET")
                             st.metric("🕒 Latest", latest_time)
                     with col_c:

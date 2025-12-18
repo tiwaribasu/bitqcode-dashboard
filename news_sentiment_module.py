@@ -401,48 +401,13 @@ class NewsSentimentAnalyzer:
             # News feed section
             st.subheader("📰 Live News Feed")
             
-            # Create Bloomberg-like terminal display
+            # Create Bloomberg-like terminal display without black background
             if self.df is not None and not self.df.empty:
-                # Create a container with custom CSS
-                st.markdown("""
-                <style>
-                .terminal-box {
-                    background-color: #000000 !important;
-                    color: #00FF00 !important;
-                    font-family: 'Courier New', Monaco, monospace !important;
-                    padding: 20px !important;
-                    border-radius: 8px !important;
-                    border: 1px solid #00FF00 !important;
-                    max-height: 600px !important;
-                    overflow-y: auto !important;
-                    line-height: 1.6 !important;
-                }
-                .news-line {
-                    margin-bottom: 15px !important;
-                    padding-left: 10px !important;
-                    border-left: 3px solid;
-                }
-                .time-stamp {
-                    color: #888888 !important;
-                    font-size: 12px !important;
-                    margin-bottom: 4px !important;
-                }
-                .news-content {
-                    color: #00FF00 !important;
-                    font-size: 14px !important;
-                    line-height: 1.4 !important;
-                }
-                </style>
-                """, unsafe_allow_html=True)
+                # Limit to 10 latest items
+                display_df = self.df.head(10)
                 
-                # Start the terminal box
-                st.markdown('<div class="terminal-box">', unsafe_allow_html=True)
-                
-                # Display each news item
-                for idx, row in self.df.iterrows():
-                    if idx >= 50:  # Limit to 50 most recent news items
-                        break
-                    
+                # Display each news item with colored text
+                for idx, row in display_df.iterrows():
                     timestamp = row['DateTime_ET'].strftime("%H:%M:%S") if 'DateTime_ET' in row else "N/A"
                     news_text = row['Cleaned_News']
                     
@@ -452,27 +417,32 @@ class NewsSentimentAnalyzer:
                     # Analyze sentiment
                     news_sentiment = self.analyze_sentiment(news_text)
                     
-                    # Get color and indicator
-                    sentiment_color = news_sentiment['color']
-                    sentiment_indicator = news_sentiment['indicator']
+                    # Get color and indicator based on sentiment
+                    if news_sentiment['sentiment'] == "Positive":
+                        text_color = "#10B981"  # Green
+                        indicator = "▲"
+                        sentiment_label = " (Bullish)"
+                    elif news_sentiment['sentiment'] == "Negative":
+                        text_color = "#EF4444"  # Red
+                        indicator = "▼"
+                        sentiment_label = " (Bearish)"
+                    else:
+                        text_color = "#F59E0B"  # Yellow/Amber
+                        indicator = "●"
+                        sentiment_label = " (Neutral)"
                     
-                    # Create the HTML for this line
-                    line_html = f'''
-                    <div class="news-line" style="border-left-color: {sentiment_color} !important;">
-                        <div class="time-stamp">
-                            [{timestamp}] <span style="color: {sentiment_color} !important; font-weight: bold !important;">{sentiment_indicator}</span>
-                        </div>
-                        <div class="news-content">
-                            {news_text}
-                        </div>
-                    </div>
-                    '''
+                    # Display timestamp with indicator
+                    col1, col2 = st.columns([3, 10])
+                    with col1:
+                        st.markdown(f"**[{timestamp}] {indicator}**")
+                    with col2:
+                        # Display news with colored text
+                        st.markdown(f'<span style="color: {text_color}">{news_text}{sentiment_label}</span>', 
+                                   unsafe_allow_html=True)
                     
-                    # Display this line
-                    st.markdown(line_html, unsafe_allow_html=True)
-                
-                # Close the terminal box
-                st.markdown('</div>', unsafe_allow_html=True)
+                    # Add a small divider between items (optional)
+                    if idx < len(display_df) - 1:
+                        st.markdown("---")
                 
                 # News statistics
                 st.markdown("---")

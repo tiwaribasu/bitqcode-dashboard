@@ -70,37 +70,6 @@ class NewsSentimentAnalyzer:
         
         return text.strip()
     
-    # def parse_datetime(self, datetime_str):
-    #     """Parse datetime string to datetime object in ET timezone"""
-    #     try:
-    #         # Clean the datetime string
-    #         datetime_str = str(datetime_str).strip()
-            
-    #         # Handle different formats
-    #         try:
-    #             # Format: "December 18, 2025 at 05:15PM"
-    #             dt = datetime.strptime(datetime_str, "%B %d, %Y at %I:%M%p")
-    #         except ValueError:
-    #             try:
-    #                 # Try without "at"
-    #                 dt = datetime.strptime(datetime_str, "%B %d, %Y %I:%M%p")
-    #             except ValueError:
-    #                 try:
-    #                     # Try another format with seconds
-    #                     dt = datetime.strptime(datetime_str, "%B %d, %Y at %I:%M:%S%p")
-    #                 except ValueError:
-    #                     # Try simple date format
-    #                     dt = datetime.strptime(datetime_str, "%Y-%m-%d %H:%M:%S")
-            
-    #         # Convert to ET (UTC-5)
-    #         et_offset = timedelta(hours=-5)
-    #         dt_et = dt + et_offset
-            
-    #         return dt_et
-            
-    #     except Exception as e:
-    #         st.warning(f"Could not parse datetime: {datetime_str}")
-    #         return datetime.now(timezone.utc)
 
     def parse_datetime(self, datetime_str):
         """
@@ -483,7 +452,6 @@ class NewsSentimentAnalyzer:
                     latest_news_time = self.df['DateTime_ET'].iloc[0]
                     st.caption(f"""
                     <div style="text-align: center; color: #64748B; font-size: 12px;">
-                        # 📅 Last update: {latest_news_time.strftime('%Y-%m-%d %H:%M:%S ET')}
                         📅 Last update: {latest_news_time.strftime('%Y-%m-%d %H:%M:%S %Z')}
 
                     </div>

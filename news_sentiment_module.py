@@ -214,65 +214,155 @@ class NewsSentimentAnalyzer:
             'negative_keywords': negative_count
         }
     
-    def create_speedometer(self, sentiment_score, sentiment_label, color):
-        """Create a speedometer/gauge chart for sentiment"""
-        # Define color based on sentiment
-        if sentiment_label == "Positive":
-            gauge_color = "#10B981"
-        elif sentiment_label == "Negative":
-            gauge_color = "#EF4444"
-        else:
-            gauge_color = "#F59E0B"
+    # def create_speedometer(self, sentiment_score, sentiment_label, color):
+    #     """Create a speedometer/gauge chart for sentiment"""
+    #     # Define color based on sentiment
+    #     if sentiment_label == "Positive":
+    #         gauge_color = "#10B981"
+    #     elif sentiment_label == "Negative":
+    #         gauge_color = "#EF4444"
+    #     else:
+    #         gauge_color = "#F59E0B"
         
+    #     fig = go.Figure(go.Indicator(
+    #         mode="gauge+number",
+    #         value=sentiment_score,
+    #         domain={'x': [0, 1], 'y': [0, 1]},
+    #         title={'text': f"Market Sentiment", 'font': {'size': 24, 'color': '#1E293B'}},
+    #         number={'font': {'size': 48, 'color': gauge_color}, 'suffix': "%"},
+    #         gauge={
+    #             'axis': {'range': [0, 100], 'tickwidth': 1, 'tickcolor': "#1E293B", 
+    #                     'tickfont': {'size': 12, 'color': '#64748B'}, 'tickmode': 'array',
+    #                     'tickvals': [0, 25, 50, 75, 100], 'ticktext': ['Very Bearish', 'Bearish', 'Neutral', 'Bullish', 'Very Bullish']},
+    #             'bar': {'color': gauge_color, 'thickness': 0.8},
+    #             'bgcolor': "white",
+    #             'borderwidth': 2,
+    #             'bordercolor': "#CBD5E1",
+    #             'steps': [
+    #                 {'range': [0, 30], 'color': 'rgba(239, 68, 68, 0.1)'},
+    #                 {'range': [30, 45], 'color': 'rgba(245, 158, 11, 0.1)'},
+    #                 {'range': [45, 55], 'color': 'rgba(251, 191, 36, 0.1)'},
+    #                 {'range': [55, 70], 'color': 'rgba(245, 158, 11, 0.1)'},
+    #                 {'range': [70, 100], 'color': 'rgba(16, 185, 129, 0.1)'}
+    #             ],
+    #             'threshold': {
+    #                 'line': {'color': gauge_color, 'width': 4},
+    #                 'thickness': 0.8,
+    #                 'value': sentiment_score
+    #             }
+    #         }
+    #     ))
+        
+    #     # Add sentiment label
+    #     fig.add_annotation(
+    #         x=0.5,
+    #         y=0.2,
+    #         text=f"<b>{sentiment_label}</b>",
+    #         showarrow=False,
+    #         font=dict(size=20, color=gauge_color),
+    #         xref="paper",
+    #         yref="paper"
+    #     )
+        
+    #     fig.update_layout(
+    #         height=400,
+    #         margin=dict(l=30, r=30, t=80, b=30),
+    #         font={'family': "Inter, system-ui, sans-serif"},
+    #         paper_bgcolor='white',
+    #         plot_bgcolor='white'
+    #     )
+        
+    #     return fig
+
+
+    def create_speedometer(self, sentiment_score, sentiment_label):
+        """
+        Clean, professional speedometer gauge
+        Color scheme:
+        - Red   : Bearish
+        - Gray  : Neutral
+        - Blue  : Bullish
+        """
+    
+        # Color mapping
+        if sentiment_label == "Positive":
+            main_color = "#2563EB"   # Blue
+        elif sentiment_label == "Negative":
+            main_color = "#DC2626"   # Red
+        else:
+            main_color = "#9CA3AF"   # Gray
+    
         fig = go.Figure(go.Indicator(
             mode="gauge+number",
             value=sentiment_score,
-            domain={'x': [0, 1], 'y': [0, 1]},
-            title={'text': f"Market Sentiment", 'font': {'size': 24, 'color': '#1E293B'}},
-            number={'font': {'size': 48, 'color': gauge_color}, 'suffix': "%"},
+            number={
+                "font": {
+                    "size": 56,
+                    "color": main_color,
+                    "family": "Inter, Arial"
+                },
+                "suffix": "%"
+            },
             gauge={
-                'axis': {'range': [0, 100], 'tickwidth': 1, 'tickcolor': "#1E293B", 
-                        'tickfont': {'size': 12, 'color': '#64748B'}, 'tickmode': 'array',
-                        'tickvals': [0, 25, 50, 75, 100], 'ticktext': ['Very Bearish', 'Bearish', 'Neutral', 'Bullish', 'Very Bullish']},
-                'bar': {'color': gauge_color, 'thickness': 0.8},
-                'bgcolor': "white",
-                'borderwidth': 2,
-                'bordercolor': "#CBD5E1",
-                'steps': [
-                    {'range': [0, 30], 'color': 'rgba(239, 68, 68, 0.1)'},
-                    {'range': [30, 45], 'color': 'rgba(245, 158, 11, 0.1)'},
-                    {'range': [45, 55], 'color': 'rgba(251, 191, 36, 0.1)'},
-                    {'range': [55, 70], 'color': 'rgba(245, 158, 11, 0.1)'},
-                    {'range': [70, 100], 'color': 'rgba(16, 185, 129, 0.1)'}
+                "axis": {
+                    "range": [0, 100],
+                    "tickwidth": 0,
+                    "tickcolor": "rgba(0,0,0,0)",
+                    "showticklabels": False
+                },
+                "bar": {
+                    "color": main_color,
+                    "thickness": 0.35
+                },
+                "bgcolor": "white",
+                "borderwidth": 0,
+                "steps": [
+                    {"range": [0, 40], "color": "#FEE2E2"},   # Light Red
+                    {"range": [40, 60], "color": "#E5E7EB"}, # Light Gray
+                    {"range": [60, 100], "color": "#DBEAFE"} # Light Blue
                 ],
-                'threshold': {
-                    'line': {'color': gauge_color, 'width': 4},
-                    'thickness': 0.8,
-                    'value': sentiment_score
-                }
             }
         ))
-        
-        # Add sentiment label
+    
+        # Sentiment label (below gauge, no overlap)
         fig.add_annotation(
             x=0.5,
-            y=0.2,
-            text=f"<b>{sentiment_label}</b>",
+            y=0.08,
+            text=f"<b>{sentiment_label.upper()}</b>",
             showarrow=False,
-            font=dict(size=20, color=gauge_color),
+            font=dict(
+                size=18,
+                color=main_color,
+                family="Inter, Arial"
+            ),
             xref="paper",
             yref="paper"
         )
-        
-        fig.update_layout(
-            height=400,
-            margin=dict(l=30, r=30, t=80, b=30),
-            font={'family': "Inter, system-ui, sans-serif"},
-            paper_bgcolor='white',
-            plot_bgcolor='white'
+    
+        # Title (top, clean)
+        fig.add_annotation(
+            x=0.5,
+            y=1.15,
+            text="<b>MARKET SENTIMENT</b>",
+            showarrow=False,
+            font=dict(
+                size=20,
+                color="#0F172A",
+                family="Inter, Arial"
+            ),
+            xref="paper",
+            yref="paper"
         )
-        
+    
+        fig.update_layout(
+            height=360,
+            margin=dict(l=20, r=20, t=80, b=40),
+            paper_bgcolor="white",
+            plot_bgcolor="white"
+        )
+    
         return fig
+
     
     def calculate_overall_sentiment(self):
         """Calculate overall sentiment from all news"""

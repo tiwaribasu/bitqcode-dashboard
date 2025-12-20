@@ -482,7 +482,9 @@ class NewsSentimentAnalyzer:
                     latest_news_time = self.df['DateTime_ET'].iloc[0]
                     st.caption(f"""
                     <div style="text-align: center; color: #64748B; font-size: 12px;">
-                        📅 Last update: {latest_news_time.strftime('%Y-%m-%d %H:%M:%S ET')}
+                        # 📅 Last update: {latest_news_time.strftime('%Y-%m-%d %H:%M:%S ET')}
+                        📅 Last update: {latest_news_time.strftime('%Y-%m-%d %H:%M:%S %Z')}
+
                     </div>
                     """, unsafe_allow_html=True)
         

@@ -527,11 +527,18 @@ class NewsSentimentAnalyzer:
             st.subheader("📊 Market Sentiment Indicator")
             
             # Display speedometer
+            # fig = self.create_speedometer(
+            #     overall_sentiment['score'],
+            #     overall_sentiment['sentiment'],
+            #     overall_sentiment['color']
+            # )
+
             fig = self.create_speedometer(
                 overall_sentiment['score'],
-                overall_sentiment['sentiment'],
-                overall_sentiment['color']
+                overall_sentiment['sentiment']
             )
+
+            
             st.plotly_chart(fig, use_container_width=True)
             
             # Sentiment statistics

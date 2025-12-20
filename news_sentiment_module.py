@@ -178,7 +178,10 @@ class NewsSentimentAnalyzer:
                         self.df['DateTime_ET'] = self.df['DateTime'].apply(self.parse_datetime)
                         
                         # Filter for today's news only
-                        today = datetime.now(timezone.utc).date()
+                        us_now = datetime.now(ZoneInfo("America/New_York"))
+                        today = us_now.date()
+
+                        # today = datetime.now(timezone.utc).date()
                         self.df['Date'] = pd.to_datetime(self.df['DateTime_ET']).dt.date
                         
                         # Check if we have today's news

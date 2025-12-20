@@ -275,29 +275,118 @@ class NewsSentimentAnalyzer:
     #     return fig
 
 
+    # def create_speedometer(self, sentiment_score, sentiment_label):
+    #     """
+    #     Clean, professional speedometer gauge
+    #     Color scheme:
+    #     - Red   : Bearish
+    #     - Gray  : Neutral
+    #     - Blue  : Bullish
+    #     """
+    
+    #     # Color mapping
+    #     if sentiment_label == "Positive":
+    #         main_color = "#2563EB"   # Blue
+    #     elif sentiment_label == "Negative":
+    #         main_color = "#DC2626"   # Red
+    #     else:
+    #         main_color = "#9CA3AF"   # Gray
+    
+    #     fig = go.Figure(go.Indicator(
+    #         mode="gauge+number",
+    #         value=sentiment_score,
+    #         number={
+    #             "font": {
+    #                 "size": 56,
+    #                 "color": main_color,
+    #                 "family": "Inter, Arial"
+    #             },
+    #             "suffix": "%"
+    #         },
+    #         gauge={
+    #             "axis": {
+    #                 "range": [0, 100],
+    #                 "tickwidth": 0,
+    #                 "tickcolor": "rgba(0,0,0,0)",
+    #                 "showticklabels": False
+    #             },
+    #             "bar": {
+    #                 "color": main_color,
+    #                 "thickness": 0.35
+    #             },
+    #             "bgcolor": "white",
+    #             "borderwidth": 0,
+    #             "steps": [
+    #                 {"range": [0, 40], "color": "#FEE2E2"},   # Light Red
+    #                 {"range": [40, 60], "color": "#E5E7EB"}, # Light Gray
+    #                 {"range": [60, 100], "color": "#DBEAFE"} # Light Blue
+    #             ],
+    #         }
+    #     ))
+    
+    #     # Sentiment label (below gauge, no overlap)
+    #     fig.add_annotation(
+    #         x=0.5,
+    #         y=0.08,
+    #         text=f"<b>{sentiment_label.upper()}</b>",
+    #         showarrow=False,
+    #         font=dict(
+    #             size=18,
+    #             color=main_color,
+    #             family="Inter, Arial"
+    #         ),
+    #         xref="paper",
+    #         yref="paper"
+    #     )
+    
+    #     # Title (top, clean)
+    #     fig.add_annotation(
+    #         x=0.5,
+    #         y=1.15,
+    #         text="<b>MARKET SENTIMENT</b>",
+    #         showarrow=False,
+    #         font=dict(
+    #             size=20,
+    #             color="#0F172A",
+    #             family="Inter, Arial"
+    #         ),
+    #         xref="paper",
+    #         yref="paper"
+    #     )
+    
+    #     fig.update_layout(
+    #         height=360,
+    #         margin=dict(l=20, r=20, t=80, b=40),
+    #         paper_bgcolor="white",
+    #         plot_bgcolor="white"
+    #     )
+    
+    #     return fig
+
+
     def create_speedometer(self, sentiment_score, sentiment_label):
         """
-        Clean, professional speedometer gauge
-        Color scheme:
-        - Red   : Bearish
-        - Gray  : Neutral
-        - Blue  : Bullish
+        Clean, professional sentiment speedometer
+        Fixes:
+        - Hidden labels
+        - Ugly center text
+        - Wrong neutral color
         """
     
-        # Color mapping
+        # ---------- STRICT COLOR LOGIC ----------
         if sentiment_label == "Positive":
             main_color = "#2563EB"   # Blue
         elif sentiment_label == "Negative":
             main_color = "#DC2626"   # Red
         else:
-            main_color = "#9CA3AF"   # Gray
+            main_color = "#9CA3AF"   # Gray (Neutral)
     
         fig = go.Figure(go.Indicator(
             mode="gauge+number",
             value=sentiment_score,
             number={
                 "font": {
-                    "size": 56,
+                    "size": 52,
                     "color": main_color,
                     "family": "Inter, Arial"
                 },
@@ -306,28 +395,38 @@ class NewsSentimentAnalyzer:
             gauge={
                 "axis": {
                     "range": [0, 100],
-                    "tickwidth": 0,
-                    "tickcolor": "rgba(0,0,0,0)",
-                    "showticklabels": False
+                    "tickmode": "array",
+                    "tickvals": [0, 25, 50, 75, 100],
+                    "ticktext": [
+                        "Very Bearish",
+                        "Bearish",
+                        "Neutral",
+                        "Bullish",
+                        "Very Bullish"
+                    ],
+                    "tickfont": {
+                        "size": 12,
+                        "color": "#475569"
+                    }
                 },
                 "bar": {
                     "color": main_color,
-                    "thickness": 0.35
+                    "thickness": 0.32
                 },
                 "bgcolor": "white",
                 "borderwidth": 0,
                 "steps": [
                     {"range": [0, 40], "color": "#FEE2E2"},   # Light Red
-                    {"range": [40, 60], "color": "#E5E7EB"}, # Light Gray
+                    {"range": [40, 60], "color": "#E5E7EB"}, # Neutral Gray
                     {"range": [60, 100], "color": "#DBEAFE"} # Light Blue
                 ],
             }
         ))
     
-        # Sentiment label (below gauge, no overlap)
+        # ---------- SENTIMENT LABEL (CLEAN & SEPARATE) ----------
         fig.add_annotation(
             x=0.5,
-            y=0.08,
+            y=0.22,
             text=f"<b>{sentiment_label.upper()}</b>",
             showarrow=False,
             font=dict(
@@ -339,10 +438,10 @@ class NewsSentimentAnalyzer:
             yref="paper"
         )
     
-        # Title (top, clean)
+        # ---------- TITLE ----------
         fig.add_annotation(
             x=0.5,
-            y=1.15,
+            y=1.12,
             text="<b>MARKET SENTIMENT</b>",
             showarrow=False,
             font=dict(
@@ -354,9 +453,10 @@ class NewsSentimentAnalyzer:
             yref="paper"
         )
     
+        # ---------- LAYOUT FIX (NO CLIPPING) ----------
         fig.update_layout(
-            height=360,
-            margin=dict(l=20, r=20, t=80, b=40),
+            height=420,
+            margin=dict(l=50, r=50, t=90, b=50),
             paper_bgcolor="white",
             plot_bgcolor="white"
         )

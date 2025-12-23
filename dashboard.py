@@ -855,7 +855,7 @@ df_india_daily_pnl_raw = load_sheet_data(sheet_gid="795838620")
 
 df_global_raw = load_sheet_data(sheet_gid="94252270")
 df_global_live_pnl_raw = load_sheet_data(sheet_gid="1297846329")
-df_global_daily_pnl_raw = load_sheet_data(sheet_gid="1869867842")
+df_global_daily_pnl_raw = load_sheet_data(sheet_gid="563240267")
 
 # Process data
 india_data = process_india_data(df_india_raw)

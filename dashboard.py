@@ -192,48 +192,129 @@ def process_live_pnl_data(df_raw):
     
     return df_today
 
+# @st.cache_data(ttl=REFRESH_INTERVAL_SEC)
+# def process_india_data(df_raw):
+#     """Process INDIA data with the new format"""
+#     if df_raw.empty:
+#         return {
+#             'open_positions': pd.DataFrame(),
+#             'closed_positions': pd.DataFrame(),
+#             'summary': {}
+#         }
+    
+#     df = df_raw.copy()
+#     df.columns = df.columns.str.strip()
+    
+#     expected_cols = [
+#         's_no', 'tradingsymbol', 'buy_value', 'buy_price', 
+#         'buy_quantity', 'sell_quantity', 'sell_price', 
+#         'sell_value', 'last_price', 'pnl'
+#     ]
+    
+#     missing_cols = set(expected_cols) - set(df.columns)
+#     if missing_cols:
+#         return {
+#             'open_positions': pd.DataFrame(),
+#             'closed_positions': pd.DataFrame(),
+#             'summary': {}
+#         }
+    
+#     numeric_cols = ['buy_value', 'buy_price', 'buy_quantity', 'sell_quantity', 
+#                    'sell_price', 'sell_value', 'last_price', 'pnl']
+#     for col in numeric_cols:
+#         df[col] = pd.to_numeric(df[col], errors='coerce')
+    
+#     df = df.dropna(subset=['tradingsymbol'])
+#     df = df[df['tradingsymbol'].astype(str).str.strip() != '']
+    
+#     # Separate open and closed positions
+#     closed_mask = (df['buy_quantity'] > 0) & (df['sell_quantity'] > 0) & (df['buy_quantity'] == df['sell_quantity'])
+#     closed_df = df[closed_mask].copy()
+#     open_mask = ~closed_mask
+#     open_df = df[open_mask].copy()
+    
+#     # Calculate additional metrics for open positions
+#     if not open_df.empty:
+#         open_df['net_quantity'] = open_df['buy_quantity'] - open_df['sell_quantity']
+#         open_df['avg_price'] = np.where(
+#             open_df['net_quantity'] != 0,
+#             (open_df['buy_value'] - open_df['sell_value']) / open_df['net_quantity'],
+#             0
+#         )
+#         open_df['unrealized_pnl'] = (open_df['last_price'] - open_df['avg_price']) * open_df['net_quantity']
+#         open_df['open_exposure'] = open_df['net_quantity'] * open_df['last_price']
+#         open_df['position_type'] = open_df['net_quantity'].apply(lambda x: 'Long' if x > 0 else 'Short' if x < 0 else 'Flat')
+#         open_df = open_df.sort_values('unrealized_pnl', ascending=False)
+    
+#     # Calculate summary metrics
+#     total_traded_volume = df['buy_value'].sum() + df['sell_value'].sum()
+#     total_closed_pnl = closed_df['pnl'].sum() if not closed_df.empty else 0
+#     total_unrealized_pnl = open_df['unrealized_pnl'].sum() if not open_df.empty else 0
+#     total_open_exposure = open_df['open_exposure'].abs().sum() if not open_df.empty else 0
+    
+#     return {
+#         'open_positions': open_df,
+#         'closed_positions': closed_df,
+#         'summary': {
+#             'total_traded_volume': total_traded_volume,
+#             'total_closed_pnl': total_closed_pnl,
+#             'total_unrealized_pnl': total_unrealized_pnl,
+#             'total_open_exposure': total_open_exposure,
+#             'open_positions_count': len(open_df),
+#             'closed_positions_count': len(closed_df),
+#             'total_pnl': total_closed_pnl + total_unrealized_pnl
+#         }
+#     }
+
+
 @st.cache_data(ttl=REFRESH_INTERVAL_SEC)
 def process_india_data(df_raw):
-    """Process INDIA data with the new format"""
+    """Process INDIA / GLOBAL data with auto-corrected realized PnL"""
     if df_raw.empty:
         return {
             'open_positions': pd.DataFrame(),
             'closed_positions': pd.DataFrame(),
             'summary': {}
         }
-    
+
     df = df_raw.copy()
     df.columns = df.columns.str.strip()
-    
+
     expected_cols = [
-        's_no', 'tradingsymbol', 'buy_value', 'buy_price', 
-        'buy_quantity', 'sell_quantity', 'sell_price', 
+        's_no', 'tradingsymbol', 'buy_value', 'buy_price',
+        'buy_quantity', 'sell_quantity', 'sell_price',
         'sell_value', 'last_price', 'pnl'
     ]
-    
-    missing_cols = set(expected_cols) - set(df.columns)
-    if missing_cols:
+
+    if not all(col in df.columns for col in expected_cols):
         return {
             'open_positions': pd.DataFrame(),
             'closed_positions': pd.DataFrame(),
             'summary': {}
         }
-    
-    numeric_cols = ['buy_value', 'buy_price', 'buy_quantity', 'sell_quantity', 
-                   'sell_price', 'sell_value', 'last_price', 'pnl']
+
+    numeric_cols = [
+        'buy_value', 'buy_price', 'buy_quantity', 'sell_quantity',
+        'sell_price', 'sell_value', 'last_price', 'pnl'
+    ]
+
     for col in numeric_cols:
         df[col] = pd.to_numeric(df[col], errors='coerce')
-    
+
     df = df.dropna(subset=['tradingsymbol'])
     df = df[df['tradingsymbol'].astype(str).str.strip() != '']
-    
-    # Separate open and closed positions
-    closed_mask = (df['buy_quantity'] > 0) & (df['sell_quantity'] > 0) & (df['buy_quantity'] == df['sell_quantity'])
+
+    # ---------------- Separate Closed & Open ----------------
+    closed_mask = (
+        (df['buy_quantity'] > 0) &
+        (df['sell_quantity'] > 0) &
+        (df['buy_quantity'] == df['sell_quantity'])
+    )
+
     closed_df = df[closed_mask].copy()
-    open_mask = ~closed_mask
-    open_df = df[open_mask].copy()
-    
-    # Calculate additional metrics for open positions
+    open_df = df[~closed_mask].copy()
+
+    # ---------------- OPEN POSITIONS ----------------
     if not open_df.empty:
         open_df['net_quantity'] = open_df['buy_quantity'] - open_df['sell_quantity']
         open_df['avg_price'] = np.where(
@@ -243,15 +324,36 @@ def process_india_data(df_raw):
         )
         open_df['unrealized_pnl'] = (open_df['last_price'] - open_df['avg_price']) * open_df['net_quantity']
         open_df['open_exposure'] = open_df['net_quantity'] * open_df['last_price']
-        open_df['position_type'] = open_df['net_quantity'].apply(lambda x: 'Long' if x > 0 else 'Short' if x < 0 else 'Flat')
+        open_df['position_type'] = open_df['net_quantity'].apply(
+            lambda x: 'Long' if x > 0 else 'Short' if x < 0 else 'Flat'
+        )
         open_df = open_df.sort_values('unrealized_pnl', ascending=False)
-    
-    # Calculate summary metrics
+
+    # ---------------- AUTO-CORRECT CLOSED PnL ----------------
+    if not closed_df.empty:
+        closed_df['computed_pnl'] = (
+            (closed_df['sell_price'] - closed_df['buy_price']) *
+            closed_df['buy_quantity']
+        )
+
+        # mismatch tolerance ₹1 / $1
+        closed_df['pnl_diff'] = closed_df['computed_pnl'] - closed_df['pnl']
+        closed_df['pnl_mismatch'] = closed_df['pnl_diff'].abs() > 1
+
+        # Overwrite wrong broker pnl
+        closed_df.loc[closed_df['pnl_mismatch'], 'pnl'] = closed_df.loc[
+            closed_df['pnl_mismatch'], 'computed_pnl'
+        ]
+
+        closed_df.drop(columns=['computed_pnl', 'pnl_diff', 'pnl_mismatch'], inplace=True)
+
+    # ---------------- SUMMARY (Corrected Ledger) ----------------
     total_traded_volume = df['buy_value'].sum() + df['sell_value'].sum()
     total_closed_pnl = closed_df['pnl'].sum() if not closed_df.empty else 0
     total_unrealized_pnl = open_df['unrealized_pnl'].sum() if not open_df.empty else 0
     total_open_exposure = open_df['open_exposure'].abs().sum() if not open_df.empty else 0
-    
+    total_pnl = total_closed_pnl + total_unrealized_pnl
+
     return {
         'open_positions': open_df,
         'closed_positions': closed_df,
@@ -262,9 +364,10 @@ def process_india_data(df_raw):
             'total_open_exposure': total_open_exposure,
             'open_positions_count': len(open_df),
             'closed_positions_count': len(closed_df),
-            'total_pnl': total_closed_pnl + total_unrealized_pnl
+            'total_pnl': total_pnl
         }
     }
+
 
 @st.cache_data(ttl=REFRESH_INTERVAL_SEC)
 def process_daily_pnl_data(df_raw, region="INDIA"):

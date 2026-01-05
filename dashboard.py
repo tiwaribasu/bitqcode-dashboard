@@ -221,8 +221,21 @@ def process_india_data(df_raw):
     
     numeric_cols = ['buy_value', 'buy_price', 'buy_quantity', 'sell_quantity', 
                    'sell_price', 'sell_value', 'last_price', 'pnl']
+    # for col in numeric_cols:
+    #     df[col] = pd.to_numeric(df[col], errors='coerce')
+
     for col in numeric_cols:
-        df[col] = pd.to_numeric(df[col], errors='coerce')
+        df[col] = (
+            df[col]
+            .astype(str)
+            .str.replace(',', '', regex=False)
+            .str.replace('₹', '', regex=False)
+            .str.replace('$', '', regex=False)
+            .str.strip()
+            .replace('', '0')
+            .astype(float)
+        )
+
     
     df = df.dropna(subset=['tradingsymbol'])
     df = df[df['tradingsymbol'].astype(str).str.strip() != '']

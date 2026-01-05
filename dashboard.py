@@ -250,25 +250,25 @@ def process_india_data(df_raw):
     if not open_df.empty:
         open_df['net_quantity'] = open_df['buy_quantity'] - open_df['sell_quantity']
         
-        # open_df['avg_price'] = np.where(
-        #     open_df['net_quantity'] != 0,
-        #     (open_df['buy_value'] - open_df['sell_value']) / open_df['net_quantity'],
-        #     0
-        # )
-        
         open_df['avg_price'] = np.where(
-            open_df['net_quantity'] == 0,
-            0,
-            np.where(
-                open_df['sell_quantity'] == 0,
-                open_df['buy_price'],
-                np.where(
-                    open_df['buy_quantity'] == 0,
-                    open_df['sell_price'],
-                    (open_df['buy_value'] - open_df['sell_value']) / open_df['net_quantity']
-                )
-            )
+            open_df['net_quantity'] != 0,
+            (open_df['buy_value'] - open_df['sell_value']) / open_df['net_quantity'],
+            0
         )
+        
+        # open_df['avg_price'] = np.where(
+        #     open_df['net_quantity'] == 0,
+        #     0,
+        #     np.where(
+        #         open_df['sell_quantity'] == 0,
+        #         open_df['buy_price'],
+        #         np.where(
+        #             open_df['buy_quantity'] == 0,
+        #             open_df['sell_price'],
+        #             (open_df['buy_value'] - open_df['sell_value']) / open_df['net_quantity']
+        #         )
+        #     )
+        # )
 
         open_df['unrealized_pnl'] = (open_df['last_price'] - open_df['avg_price']) * open_df['net_quantity']
         open_df['open_exposure'] = open_df['net_quantity'] * open_df['last_price']

@@ -244,7 +244,7 @@ def process_india_data(df_raw):
     closed_mask = (df['buy_quantity'] > 0) & (df['sell_quantity'] > 0) & (df['buy_quantity'] == df['sell_quantity'])
     closed_df = df[closed_mask].copy()
     
-    closed_df['pnl'] = (closed_df['sell_price'] - closed_df['buy_price']) * closed_df['net_quantity']    # NEW CHANGE
+    closed_df['pnl'] = (closed_df['sell_price'] - closed_df['buy_price']) * closed_df['sell_quantity']    # NEW CHANGE
     
     open_mask = ~closed_mask
     open_df = df[open_mask].copy()
